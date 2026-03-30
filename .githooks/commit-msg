@@ -1,0 +1,4 @@
+#!/bin/sh
+
+# Проверяем формат сообщения коммита с помощью нативного Go-порта commitlint
+go run github.com/conventionalcommit/commitlint@latest lint --message "$1"

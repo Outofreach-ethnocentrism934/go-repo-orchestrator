@@ -1,0 +1,92 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Preflight - validate tag and required signing secrets
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_FINGERPRINT: ${{ secrets.GPG_FINGERPRINT }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          case "${GITHUB_REF_NAME}" in
+            v*) ;;
+            *)
+              echo "release workflow must run from a v* tag, got: ${GITHUB_REF_NAME}" >&2
+              exit 1
+              ;;
+          esac
+
+          [ -n "${GPG_PRIVATE_KEY}" ] || { echo "missing required secret: GPG_PRIVATE_KEY" >&2; exit 1; }
+          [ -n "${GPG_FINGERPRINT}" ] || { echo "missing required secret: GPG_FINGERPRINT" >&2; exit 1; }
+
+      - name: Preflight - acceptance checks
+        run: |
+          set -euo pipefail
+          pkgs="./cmd/... ./internal/..."
+          if [ -d ./pkg ]; then
+            pkgs="$pkgs ./pkg/..."
+          fi
+          go test $(go list $pkgs)
+          go vet $(go list $pkgs)
+
+      - name: Preflight - GoReleaser config check
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: '~> v2'
+          args: check
+
+      - name: Import GPG key
+        id: import_gpg
+        uses: crazy-max/ghaction-import-gpg@v6
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE || '' }}
+
+      - name: Preflight - validate imported fingerprint
+        env:
+          EXPECTED_GPG_FINGERPRINT: ${{ secrets.GPG_FINGERPRINT }}
+          IMPORTED_GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
+        run: |
+          set -euo pipefail
+          if [ "${IMPORTED_GPG_FINGERPRINT}" != "${EXPECTED_GPG_FINGERPRINT}" ]; then
+            echo "imported GPG fingerprint does not match expected secret fingerprint" >&2
+            echo "imported: ${IMPORTED_GPG_FINGERPRINT}" >&2
+            exit 1
+          fi
+
+      - name: Release with GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: '~> v2'
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GPG_FINGERPRINT: ${{ secrets.GPG_FINGERPRINT }}

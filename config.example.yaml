@@ -1,0 +1,46 @@
+browser:
+  cdp_url: 'http://127.0.0.1:9222'
+
+jira:
+  - group: 'EXAMPLE'
+    url: https://jira.example.com
+    type: 'login'
+    login:
+      username: 'test@example.com'
+      password: 'example-user-password'
+
+  - group: 'TASKS'
+    url: https://tasks.example.org
+    playwright: false
+    type: 'token'
+    token: 'exampletoken'
+
+  - group: 'IDEA'
+    url: https://idea.example.org
+    playwright: true
+
+repos:
+  - name: 'Go repo orchestrator'
+    url: git@github.com:AgelxNash/go-repo-orchestrator.git
+    branch:
+      keep:
+        - '^(main|develop)$'
+        - '^release/.*$'
+      jira:
+        - '^(?P<EXAMPLE>(WEB|MOBI|BFF)\-\d+)$'
+        - '^((fix|bug|feature|hotfix)\/)*(?P<TASKS>(ECMDEV|SIMPLE)\-\d+)$'
+
+  - name: 'Local monorepo'
+    path: ./tmp/test-monorepo
+    branch:
+      keep:
+        - '^(main|master|develop)$'
+      jira:
+        - '^(?:feature|bugfix)\/(?P<TASKS>[A-Z]+-\d+)$'
+        - '(?P<IDEA>[A-Z]+-\d+)'
+
+  - name: "AgelxNash readme"
+    path: ./tmp/agelxnash-readme
+    url: git@github.com:AgelxNash/AgelxNash.git
+    branch:
+      autoswitch: 'main'

@@ -1,0 +1,11 @@
+bin/
+dist/
+tmp/
+coverage.out
+*.log
+.DS_Store
+config.yaml
+/internal/usecase/git-branch-cleaner-*-delete-*.sh
+/internal/usecase/git-branch-cleaner-*-delete-*.bat
+/internal/usecase/go-repo-orchestrator-*-delete-*.sh
+/internal/usecase/go-repo-orchestrator-*-delete-*.bat
