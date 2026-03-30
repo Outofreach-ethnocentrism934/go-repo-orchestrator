@@ -296,7 +296,7 @@ func TestLoadRepoBranchesOpensourceReturnsErrorWhenUpdateFailsAndNoLocalRepo(t *
 	if err == nil {
 		t.Fatal("expected hard error when opensource update fails and fallback repo is unavailable")
 	}
-	if !strings.Contains(err.Error(), "prepare repository") {
+	if !strings.Contains(err.Error(), "подготовить репозиторий") {
 		t.Fatalf("expected prepare repository error wrapper, got: %v", err)
 	}
 }
@@ -359,7 +359,7 @@ func TestLoadRepoStatURLReturnsHardErrorWhenNoLocalCache(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected hard error when both sync and local cache are unavailable")
 	}
-	if !strings.Contains(err.Error(), "prepare repository") {
+	if !strings.Contains(err.Error(), "подготовить репозиторий") {
 		t.Fatalf("expected prepare repository error wrapper, got: %v", err)
 	}
 }
@@ -1008,7 +1008,7 @@ func TestLoadRepoBranchesProtectsAndSkipsRemoteDefaultBranch(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected script generation to skip protected remote default branch")
 	}
-	if !strings.Contains(err.Error(), "no eligible branches selected") {
+	if !strings.Contains(err.Error(), "подходящие ветки не выбраны") {
 		t.Fatalf("unexpected generate script error: %v", err)
 	}
 }

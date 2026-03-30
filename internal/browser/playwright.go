@@ -208,10 +208,10 @@ func (r *PlaywrightRuntime) runOptions() *playwright.RunOptions {
 
 func (r *PlaywrightRuntime) bootstrap(runOptions *playwright.RunOptions) error {
 	if r == nil {
-		return errors.New("playwright runtime is nil")
+		return errors.New("playwright runtime равен nil")
 	}
 	if r.installFn == nil {
-		return errors.New("playwright installer is not configured")
+		return errors.New("playwright installer не настроен")
 	}
 
 	driverDirectory := "default cache"
@@ -221,7 +221,7 @@ func (r *PlaywrightRuntime) bootstrap(runOptions *playwright.RunOptions) error {
 
 	r.logger.Warn("playwright runtime отсутствует, выполняю авто-bootstrap", zap.String("driver_dir", driverDirectory))
 	if err := r.installFn(runOptions); err != nil {
-		return fmt.Errorf("auto-bootstrap playwright runtime: %w", err)
+		return fmt.Errorf("авто-bootstrap playwright runtime: %w", err)
 	}
 	r.logger.Info("playwright runtime подготовлен", zap.String("driver_dir", driverDirectory))
 
@@ -284,7 +284,7 @@ func (r *PlaywrightRuntime) Close() error {
 
 func (r *PlaywrightRuntime) RequestGET(ctx context.Context, requestURL string, headers map[string]string) (int, map[string]string, []byte, error) {
 	if r == nil {
-		return 0, nil, nil, errors.New("playwright runtime is nil")
+		return 0, nil, nil, errors.New("playwright runtime равен nil")
 	}
 
 	r.mu.Lock()
@@ -293,7 +293,7 @@ func (r *PlaywrightRuntime) RequestGET(ctx context.Context, requestURL string, h
 	r.mu.Unlock()
 
 	if !started || browser == nil {
-		return 0, nil, nil, errors.New("playwright runtime is not started")
+		return 0, nil, nil, errors.New("playwright runtime не запущен")
 	}
 
 	browserContext, mustClose, err := selectContextForRequest(browser, requestURL)
@@ -319,7 +319,7 @@ func (r *PlaywrightRuntime) RequestGET(ctx context.Context, requestURL string, h
 
 	response, err := requestCtx.Get(requestURL, options)
 	if err != nil {
-		return 0, nil, nil, fmt.Errorf("playwright get request failed: %w", err)
+		return 0, nil, nil, fmt.Errorf("ошибка get-запроса playwright: %w", err)
 	}
 	defer func() {
 		_ = response.Dispose()
@@ -327,7 +327,7 @@ func (r *PlaywrightRuntime) RequestGET(ctx context.Context, requestURL string, h
 
 	body, err := response.Body()
 	if err != nil {
-		return 0, nil, nil, fmt.Errorf("read playwright response body: %w", err)
+		return 0, nil, nil, fmt.Errorf("прочитать тело ответа playwright: %w", err)
 	}
 
 	return response.Status(), response.Headers(), body, nil
@@ -351,7 +351,7 @@ func selectContextForRequest(browser playwright.Browser, requestURL string) (pla
 
 	ctx, err := browser.NewContext()
 	if err != nil {
-		return nil, false, fmt.Errorf("create playwright browser context: %w", err)
+		return nil, false, fmt.Errorf("создать browser context playwright: %w", err)
 	}
 
 	return ctx, true, nil
@@ -409,7 +409,7 @@ func defaultStartPlaywright(cdpURL string, runOptions *playwright.RunOptions) (p
 
 		return playwrightSession{closeFn: func() error {
 			if err := pw.Stop(); err != nil {
-				return fmt.Errorf("stop playwright runtime: %w", err)
+				return fmt.Errorf("остановить playwright runtime: %w", err)
 			}
 
 			return nil
@@ -427,10 +427,10 @@ func defaultStartPlaywright(cdpURL string, runOptions *playwright.RunOptions) (p
 	return playwrightSession{closeFn: func() error {
 		var errs []error
 		if err := browser.Close(); err != nil {
-			errs = append(errs, fmt.Errorf("close playwright browser: %w", err))
+			errs = append(errs, fmt.Errorf("закрыть браузер playwright: %w", err))
 		}
 		if err := pw.Stop(); err != nil {
-			errs = append(errs, fmt.Errorf("stop playwright runtime: %w", err))
+			errs = append(errs, fmt.Errorf("остановить playwright runtime: %w", err))
 		}
 
 		return errors.Join(errs...)

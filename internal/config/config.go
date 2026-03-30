@@ -101,7 +101,7 @@ func Load(path string) (*Config, error) {
 	v.SetConfigType("yaml")
 
 	if err := v.ReadInConfig(); err != nil {
-		return nil, fmt.Errorf("read config: %w", err)
+		return nil, fmt.Errorf("прочитать конфиг: %w", err)
 	}
 
 	return LoadFromViper(v)
@@ -110,7 +110,7 @@ func Load(path string) (*Config, error) {
 // LoadFromViper загружает типизированный конфиг из экземпляра viper.
 func LoadFromViper(v *viper.Viper) (*Config, error) {
 	if v == nil {
-		return nil, errors.New("viper instance is required")
+		return nil, errors.New("требуется экземпляр viper")
 	}
 
 	var cfg Config
@@ -153,25 +153,25 @@ func LoadFromViper(v *viper.Viper) (*Config, error) {
 		hasPath := repo.Path != ""
 		switch {
 		case !hasURL && !hasPath:
-			return nil, fmt.Errorf("repo[%s]: either url or path is required", repo.Name)
+			return nil, fmt.Errorf("repo[%s]: требуется указать url или path", repo.Name)
 		case hasURL && hasPath:
 			// opensource repo: validate url and resolve path
 			if err := validateRepoURL(repo.URL); err != nil {
-				return nil, fmt.Errorf("repo[%s]: invalid url: %w", repo.Name, err)
+				return nil, fmt.Errorf("repo[%s]: некорректный url: %w", repo.Name, err)
 			}
 			absPath, err := filepath.Abs(repo.Path)
 			if err != nil {
-				return nil, fmt.Errorf("repo[%s]: resolve path: %w", repo.Name, err)
+				return nil, fmt.Errorf("repo[%s]: определить path: %w", repo.Name, err)
 			}
 			repo.Path = absPath
 		case hasURL:
 			if err := validateRepoURL(repo.URL); err != nil {
-				return nil, fmt.Errorf("repo[%s]: invalid url: %w", repo.Name, err)
+				return nil, fmt.Errorf("repo[%s]: некорректный url: %w", repo.Name, err)
 			}
 		case hasPath:
 			absPath, err := filepath.Abs(repo.Path)
 			if err != nil {
-				return nil, fmt.Errorf("repo[%s]: resolve path: %w", repo.Name, err)
+				return nil, fmt.Errorf("repo[%s]: определить path: %w", repo.Name, err)
 			}
 			repo.Path = absPath
 		}
@@ -302,7 +302,7 @@ func compilePatterns(patterns []string) ([]*compiledPattern, error) {
 	for _, pattern := range patterns {
 		re, err := regexp.Compile(pattern)
 		if err != nil {
-			return nil, fmt.Errorf("compile pattern %q: %w", pattern, err)
+			return nil, fmt.Errorf("скомпилировать pattern %q: %w", pattern, err)
 		}
 		result = append(result, &compiledPattern{raw: pattern, re: re})
 	}
@@ -314,10 +314,10 @@ var scpLikeGitURLRE = regexp.MustCompile(`^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+:[A-Za-
 func validateRepoURL(raw string) error {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
-		return errors.New("url is empty")
+		return errors.New("url пустой")
 	}
 	if strings.ContainsAny(raw, " \t\n\r") {
-		return errors.New("url contains whitespace")
+		return errors.New("url содержит пробельные символы")
 	}
 
 	if scpLikeGitURLRE.MatchString(raw) {
@@ -326,17 +326,17 @@ func validateRepoURL(raw string) error {
 
 	parsed, err := url.Parse(raw)
 	if err != nil {
-		return fmt.Errorf("parse url: %w", err)
+		return fmt.Errorf("разобрать url: %w", err)
 	}
 
 	if parsed.Scheme != "https" && parsed.Scheme != "ssh" {
-		return fmt.Errorf("unsupported scheme %q", parsed.Scheme)
+		return fmt.Errorf("неподдерживаемая scheme %q", parsed.Scheme)
 	}
 	if parsed.Host == "" {
-		return errors.New("host is required")
+		return errors.New("требуется host")
 	}
 	if parsed.Path == "" || parsed.Path == "/" {
-		return errors.New("repository path is required")
+		return errors.New("требуется путь репозитория")
 	}
 
 	return nil
@@ -350,17 +350,17 @@ func validateBrowserCDPURL(raw string) error {
 
 	parsed, err := url.Parse(raw)
 	if err != nil {
-		return fmt.Errorf("parse cdp url: %w", err)
+		return fmt.Errorf("разобрать cdp url: %w", err)
 	}
 
 	switch parsed.Scheme {
 	case "http", "https", "ws", "wss":
 	default:
-		return fmt.Errorf("unsupported scheme %q", parsed.Scheme)
+		return fmt.Errorf("неподдерживаемая scheme %q", parsed.Scheme)
 	}
 
 	if parsed.Host == "" {
-		return errors.New("host is required")
+		return errors.New("требуется host")
 	}
 
 	return nil
@@ -566,11 +566,11 @@ func ScanDirectory(dir string) (*Config, error) {
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("walk directory: %w", err)
+		return nil, fmt.Errorf("обойти директорию: %w", err)
 	}
 
 	if len(repos) == 0 {
-		return nil, errors.New("no git repositories found in the specified directory")
+		return nil, errors.New("в указанной директории не найдены git-репозитории")
 	}
 
 	return &Config{Repos: repos}, nil

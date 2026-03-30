@@ -311,7 +311,7 @@ func (c *Cleaner) LoadRepoStat(repo config.RepoConfig) (model.RepoStat, error) {
 
 	stat, err := c.git.GetRepoStat(managedPath)
 	if err != nil {
-		return model.RepoStat{}, fmt.Errorf("get repo stat: %w", err)
+		return model.RepoStat{}, fmt.Errorf("получить статус репозитория: %w", err)
 	}
 	stat.SyncWarning = syncWarning
 
@@ -328,7 +328,7 @@ func (c *Cleaner) resolveRepoForRead(repo config.RepoConfig) (string, string, er
 
 		fallbackPath := c.git.ManagedRepoPath(repo.Name, repo.URL)
 		if _, fallbackErr := c.git.ResolveRepoPath(repo.Name, "", fallbackPath); fallbackErr != nil {
-			return "", "", fmt.Errorf("prepare repository: %w", err)
+			return "", "", fmt.Errorf("подготовить репозиторий: %w", err)
 		}
 
 		return fallbackPath, fmt.Sprintf("синхронизация remote не выполнена: %v", err), nil
@@ -337,7 +337,7 @@ func (c *Cleaner) resolveRepoForRead(repo config.RepoConfig) (string, string, er
 		if updateErr := c.git.UpdateOpensourceRepo(repo.URL, repo.Path, repo.Branch.Autoswitch); updateErr != nil {
 			localPath, fallbackErr := c.git.ResolveRepoPath(repo.Name, "", repo.Path)
 			if fallbackErr != nil {
-				return "", "", fmt.Errorf("prepare repository: %w", updateErr)
+				return "", "", fmt.Errorf("подготовить репозиторий: %w", updateErr)
 			}
 
 			return localPath, fmt.Sprintf("синхронизация remote не выполнена: %v", updateErr), nil
@@ -345,7 +345,7 @@ func (c *Cleaner) resolveRepoForRead(repo config.RepoConfig) (string, string, er
 
 		localPath, err := c.git.ResolveRepoPath(repo.Name, "", repo.Path)
 		if err != nil {
-			return "", "", fmt.Errorf("prepare repository: %w", err)
+			return "", "", fmt.Errorf("подготовить репозиторий: %w", err)
 		}
 
 		return localPath, "", nil
@@ -353,7 +353,7 @@ func (c *Cleaner) resolveRepoForRead(repo config.RepoConfig) (string, string, er
 	default:
 		managedPath, err := c.git.ResolveRepoPath(repo.Name, repo.URL, repo.Path)
 		if err != nil {
-			return "", "", fmt.Errorf("prepare repository: %w", err)
+			return "", "", fmt.Errorf("подготовить репозиторий: %w", err)
 		}
 
 		return managedPath, "", nil
@@ -363,7 +363,7 @@ func (c *Cleaner) resolveRepoForRead(repo config.RepoConfig) (string, string, er
 // GenerateDeleteScript формирует shell/cmd скрипт удаления выбранных веток и сохраняет его в репозитории.
 func (c *Cleaner) GenerateDeleteScript(repo config.RepoConfig, repoPath string, branches []model.BranchInfo, format model.ScriptFormat) (model.ScriptResult, error) {
 	if len(branches) == 0 {
-		return model.ScriptResult{}, fmt.Errorf("no branches selected")
+		return model.ScriptResult{}, fmt.Errorf("ветки не выбраны")
 	}
 
 	eligible := make([]model.BranchInfo, 0, len(branches))
@@ -377,7 +377,7 @@ func (c *Cleaner) GenerateDeleteScript(repo config.RepoConfig, repoPath string, 
 		eligible = append(eligible, branch)
 	}
 	if len(eligible) == 0 {
-		return model.ScriptResult{}, fmt.Errorf("no eligible branches selected")
+		return model.ScriptResult{}, fmt.Errorf("подходящие ветки не выбраны")
 	}
 
 	sessionID := time.Now().UTC().Format("20060102T150405Z")
@@ -398,7 +398,7 @@ func (c *Cleaner) GenerateDeleteScript(repo config.RepoConfig, repoPath string, 
 
 	scriptFile, err := os.CreateTemp(cwd, filePattern)
 	if err != nil {
-		return model.ScriptResult{}, fmt.Errorf("create script file: %w", err)
+		return model.ScriptResult{}, fmt.Errorf("создать файл скрипта: %w", err)
 	}
 	scriptPath := scriptFile.Name()
 	defer func() {
@@ -412,12 +412,12 @@ func (c *Cleaner) GenerateDeleteScript(repo config.RepoConfig, repoPath string, 
 
 	if _, err := scriptFile.WriteString(content); err != nil {
 		_ = os.Remove(scriptPath)
-		return model.ScriptResult{}, fmt.Errorf("write script: %w", err)
+		return model.ScriptResult{}, fmt.Errorf("записать скрипт: %w", err)
 	}
 
 	if err := scriptFile.Chmod(perm); err != nil {
 		_ = os.Remove(scriptPath)
-		return model.ScriptResult{}, fmt.Errorf("set script permissions: %w", err)
+		return model.ScriptResult{}, fmt.Errorf("установить права на скрипт: %w", err)
 	}
 
 	return model.ScriptResult{
@@ -433,7 +433,7 @@ func (c *Cleaner) GenerateDeleteScript(repo config.RepoConfig, repoPath string, 
 func (c *Cleaner) ForceCheckoutLocalBranch(repo config.RepoConfig, branch string) error {
 	managedPath, err := c.git.ResolveRepoPath(repo.Name, repo.URL, repo.Path)
 	if err != nil {
-		return fmt.Errorf("prepare repository: %w", err)
+		return fmt.Errorf("подготовить репозиторий: %w", err)
 	}
 
 	return c.git.ForceCheckout(managedPath, branch)
@@ -443,7 +443,7 @@ func (c *Cleaner) ForceCheckoutLocalBranch(repo config.RepoConfig, branch string
 func (c *Cleaner) CreateLocalTrackingBranch(repo config.RepoConfig, localBranch, remoteBranch string) error {
 	managedPath, err := c.git.ResolveRepoPath(repo.Name, repo.URL, repo.Path)
 	if err != nil {
-		return fmt.Errorf("prepare repository: %w", err)
+		return fmt.Errorf("подготовить репозиторий: %w", err)
 	}
 
 	return c.git.CreateTrackingBranchAndCheckout(managedPath, localBranch, remoteBranch)
@@ -468,17 +468,17 @@ func (c *Cleaner) FetchAndPullRepo(repo config.RepoConfig) error {
 	case "url":
 		repoPath, err = c.git.EnsureManagedClone(repo.Name, repo.URL)
 		if err != nil {
-			return fmt.Errorf("prepare repository: %w", err)
+			return fmt.Errorf("подготовить репозиторий: %w", err)
 		}
 	default:
 		repoPath, err = c.git.ResolveRepoPath(repo.Name, "", repo.Path)
 		if err != nil {
-			return fmt.Errorf("prepare repository: %w", err)
+			return fmt.Errorf("подготовить репозиторий: %w", err)
 		}
 	}
 
 	if err := c.git.FetchAndPull(repoPath, repo.URL); err != nil {
-		return fmt.Errorf("fetch and pull: %w", err)
+		return fmt.Errorf("выполнить fetch и pull: %w", err)
 	}
 
 	return nil

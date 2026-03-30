@@ -499,7 +499,7 @@ func (s *StatusService) resolveSearch(group string, transport groupTransport, re
 func (s *StatusService) resolveStatusViaHTTP(requestURL string, headers map[string]string) (searchStatusResponse, error) {
 	req, err := http.NewRequest(http.MethodGet, requestURL, nil)
 	if err != nil {
-		return searchStatusResponse{}, fmt.Errorf("build jira request: %w", err)
+		return searchStatusResponse{}, fmt.Errorf("собрать jira-запрос: %w", err)
 	}
 
 	for key, value := range headers {
@@ -508,7 +508,7 @@ func (s *StatusService) resolveStatusViaHTTP(requestURL string, headers map[stri
 
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
-		return searchStatusResponse{}, fmt.Errorf("jira http request failed: %w", err)
+		return searchStatusResponse{}, fmt.Errorf("ошибка http-запроса jira: %w", err)
 	}
 	defer func() {
 		_ = resp.Body.Close()
@@ -516,7 +516,7 @@ func (s *StatusService) resolveStatusViaHTTP(requestURL string, headers map[stri
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return searchStatusResponse{}, fmt.Errorf("read jira response body: %w", err)
+		return searchStatusResponse{}, fmt.Errorf("прочитать тело ответа jira: %w", err)
 	}
 
 	return searchStatusResponse{
@@ -531,12 +531,12 @@ func (s *StatusService) resolveStatusViaHTTP(requestURL string, headers map[stri
 
 func (s *StatusService) resolveStatusViaBrowser(requestURL string, headers map[string]string) (browserSearchResponse, []byte, error) {
 	if s.browser == nil {
-		return browserSearchResponse{}, nil, fmt.Errorf("jira browser runtime is not configured")
+		return browserSearchResponse{}, nil, fmt.Errorf("browser runtime для jira не настроен")
 	}
 
 	statusCode, responseHeaders, body, err := s.browser.RequestGET(context.Background(), requestURL, headers)
 	if err != nil {
-		return browserSearchResponse{}, nil, fmt.Errorf("jira browser request failed: %w", err)
+		return browserSearchResponse{}, nil, fmt.Errorf("ошибка browser-запроса jira: %w", err)
 	}
 
 	return browserSearchResponse{
@@ -812,12 +812,12 @@ func normalizeBaseURL(raw string) string {
 func buildSearchStatusURL(jiraBaseURL string, keys []string, startAt int) (string, error) {
 	base := normalizeBaseURL(jiraBaseURL)
 	if base == "" || len(keys) == 0 {
-		return "", fmt.Errorf("jira status url is incomplete")
+		return "", fmt.Errorf("url для jira-статуса неполный")
 	}
 
 	parsed, err := url.Parse(base)
 	if err != nil {
-		return "", fmt.Errorf("parse jira base url: %w", err)
+		return "", fmt.Errorf("разобрать базовый url jira: %w", err)
 	}
 
 	jqlParts := make([]string, 0, len(keys))
@@ -829,7 +829,7 @@ func buildSearchStatusURL(jiraBaseURL string, keys []string, startAt int) (strin
 		jqlParts = append(jqlParts, "\""+strings.ReplaceAll(normalized, "\"", "\\\"")+"\"")
 	}
 	if len(jqlParts) == 0 {
-		return "", fmt.Errorf("jira status url is incomplete")
+		return "", fmt.Errorf("url для jira-статуса неполный")
 	}
 
 	parsed.Path = strings.TrimRight(parsed.Path, "/") + "/rest/api/2/search"
@@ -884,7 +884,7 @@ func parseSearchStatuses(body []byte) (map[string]string, int, int, error) {
 	}
 
 	if err := json.Unmarshal(body, &payload); err != nil {
-		return nil, 0, 0, fmt.Errorf("decode jira issue response: %w", err)
+		return nil, 0, 0, fmt.Errorf("декодировать ответ jira issue: %w", err)
 	}
 
 	statusByKey := make(map[string]string, len(payload.Issues))

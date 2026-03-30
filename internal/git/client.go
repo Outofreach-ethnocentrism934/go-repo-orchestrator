@@ -40,16 +40,16 @@ func (c *Client) ResolveRepoPath(repoName, repoURL, localPath string) (string, e
 	if localPath != "" {
 		absPath, err := filepath.Abs(localPath)
 		if err != nil {
-			return "", fmt.Errorf("resolve local path: %w", err)
+			return "", fmt.Errorf("определение локального пути: %w", err)
 		}
 		if !isGitRepo(absPath) {
-			return "", fmt.Errorf("local path is not a git repository: %s", absPath)
+			return "", fmt.Errorf("локальный путь не является git-репозиторием: %s", absPath)
 		}
 		return absPath, nil
 	}
 
 	if repoURL == "" {
-		return "", errors.New("repo url is required for managed clone")
+		return "", errors.New("для управляемого клона требуется адрес репозитория")
 	}
 
 	return c.EnsureManagedClone(repoName, repoURL)
@@ -67,7 +67,7 @@ func NewClient(timeout time.Duration, workspaceDir string) *Client {
 // EnsureManagedClone гарантирует наличие managed clone и актуализирует remote refs.
 func (c *Client) EnsureManagedClone(repoName, repoURL string) (string, error) {
 	if c.workspaceDir == "" {
-		return "", errors.New("workspace dir is required")
+		return "", errors.New("требуется рабочая директория")
 	}
 
 	managedPath := filepath.Join(c.workspaceDir, safeManagedRepoDir(repoName, repoURL))
@@ -104,12 +104,12 @@ func (c *Client) UpdateOpensourceRepo(url, targetPath, branch string) error {
 	targetPath = strings.TrimSpace(targetPath)
 	branch = strings.TrimSpace(branch)
 	if targetPath == "" {
-		return errors.New("target path is required")
+		return errors.New("требуется целевой путь")
 	}
 
 	absPath, err := filepath.Abs(targetPath)
 	if err != nil {
-		return fmt.Errorf("resolve target path: %w", err)
+		return fmt.Errorf("определение целевого пути: %w", err)
 	}
 
 	unlock := c.lockForPath(absPath)
@@ -137,10 +137,10 @@ func (c *Client) UpdateOpensourceRepo(url, targetPath, branch string) error {
 	}
 
 	if _, err := c.runGit(absPath, "reset", "--hard", "HEAD", "--quiet"); err != nil {
-		return fmt.Errorf("git reset: %w", err)
+		return fmt.Errorf("ошибка git reset: %w", err)
 	}
 	if _, err := c.runGit(absPath, "clean", "-fd", "--quiet"); err != nil {
-		return fmt.Errorf("git clean: %w", err)
+		return fmt.Errorf("ошибка git clean: %w", err)
 	}
 
 	existsLocal, err := c.BranchExists(absPath, branch)
@@ -149,23 +149,23 @@ func (c *Client) UpdateOpensourceRepo(url, targetPath, branch string) error {
 	}
 	if existsLocal {
 		if _, err := c.runGit(absPath, "checkout", "--quiet", branch); err != nil {
-			return fmt.Errorf("checkout %q: %w", branch, err)
+			return fmt.Errorf("ошибка checkout %q: %w", branch, err)
 		}
 	} else {
 		if err := c.runGitStatusOnly(absPath, "show-ref", "--verify", "--quiet", "refs/tags/"+branch); err == nil {
 			if _, err := c.runGit(absPath, "checkout", "--quiet", branch); err != nil {
-				return fmt.Errorf("checkout tag %q: %w", branch, err)
+				return fmt.Errorf("ошибка checkout тега %q: %w", branch, err)
 			}
 		} else {
 			if _, err := c.runGit(absPath, "checkout", "-B", branch, "origin/"+branch, "--quiet"); err != nil {
-				return fmt.Errorf("checkout -B %q origin/%q: %w", branch, branch, err)
+				return fmt.Errorf("ошибка checkout -B %q origin/%q: %w", branch, branch, err)
 			}
 		}
 	}
 
 	if err := c.runGitStatusOnly(absPath, "show-ref", "--verify", "--quiet", "refs/remotes/origin/"+branch); err == nil {
 		if _, resetErr := c.runGit(absPath, "reset", "--hard", "origin/"+branch, "--quiet"); resetErr != nil {
-			return fmt.Errorf("reset to origin/%q: %w", branch, resetErr)
+			return fmt.Errorf("ошибка reset к origin/%q: %w", branch, resetErr)
 		}
 	}
 
@@ -217,7 +217,7 @@ func (c *Client) FetchAndPull(repoPath, repoURL string) error {
 	}
 	currentBranch := strings.TrimSpace(currentBranchOut)
 	if currentBranch == "" || currentBranch == "HEAD" {
-		return errors.New("pull недоступен: репозиторий в detached HEAD")
+		return errors.New("pull недоступен: репозиторий в состоянии detached HEAD")
 	}
 
 	if err := c.runGitStatusOnly(repoPath, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"); err != nil {
@@ -238,7 +238,7 @@ func (c *Client) ForceCheckout(repoPath, branch string) error {
 
 	_, err := c.runGit(repoPath, "checkout", "-f", branch)
 	if err != nil {
-		return fmt.Errorf("git checkout -f %s failed: %w", branch, err)
+		return fmt.Errorf("ошибка git checkout -f %s: %w", branch, err)
 	}
 	return nil
 }
@@ -250,18 +250,18 @@ func (c *Client) CreateTrackingBranchAndCheckout(repoPath, localBranch, remoteBr
 
 	exists, err := c.BranchExists(repoPath, localBranch)
 	if err != nil {
-		return fmt.Errorf("check local branch %q existence: %w", localBranch, err)
+		return fmt.Errorf("проверка существования локальной ветки %q: %w", localBranch, err)
 	}
 
 	if exists {
 		if _, err := c.runGit(repoPath, "checkout", localBranch); err != nil {
-			return fmt.Errorf("checkout existing branch %q: %w", localBranch, err)
+			return fmt.Errorf("ошибка checkout существующей ветки %q: %w", localBranch, err)
 		}
 		return nil
 	}
 
 	if _, err := c.runGit(repoPath, "checkout", "--track", "-b", localBranch, remoteBranch); err != nil {
-		return fmt.Errorf("create tracking branch %q from %q: %w", localBranch, remoteBranch, err)
+		return fmt.Errorf("ошибка создания ветки отслеживания %q из %q: %w", localBranch, remoteBranch, err)
 	}
 
 	return nil
@@ -344,14 +344,14 @@ func (c *Client) ListBranches(repoPath string) ([]model.BranchInfo, error) {
 func (c *Client) listLocalBranches(repo *git.Repository) ([]model.BranchInfo, error) {
 	branches, err := repo.Branches()
 	if err != nil {
-		return nil, fmt.Errorf("list local branches: %w", err)
+		return nil, fmt.Errorf("получение списка локальных веток: %w", err)
 	}
 
 	var result []model.BranchInfo
 	err = branches.ForEach(func(ref *plumbing.Reference) error {
 		commit, err := commitForRef(repo, ref)
 		if err != nil {
-			return fmt.Errorf("resolve commit for branch %q: %w", ref.Name().Short(), err)
+			return fmt.Errorf("определение коммита для ветки %q: %w", ref.Name().Short(), err)
 		}
 
 		name := ref.Name().Short()
@@ -377,7 +377,7 @@ func (c *Client) listLocalBranches(repo *git.Repository) ([]model.BranchInfo, er
 func (c *Client) listRemoteBranches(repo *git.Repository) ([]model.BranchInfo, error) {
 	refs, err := repo.References()
 	if err != nil {
-		return nil, fmt.Errorf("list references: %w", err)
+		return nil, fmt.Errorf("получение списка ссылок: %w", err)
 	}
 
 	var result []model.BranchInfo
@@ -398,7 +398,7 @@ func (c *Client) listRemoteBranches(repo *git.Repository) ([]model.BranchInfo, e
 
 		commit, err := commitForRef(repo, ref)
 		if err != nil {
-			return fmt.Errorf("resolve commit for remote branch %q: %w", short, err)
+			return fmt.Errorf("определение коммита для удаленной ветки %q: %w", short, err)
 		}
 
 		remoteName := parts[0]
@@ -432,7 +432,7 @@ func (c *Client) CurrentBranch(repoPath string) (string, error) {
 
 	head, err := repo.Head()
 	if err != nil {
-		return "", fmt.Errorf("resolve head: %w", err)
+		return "", fmt.Errorf("определение HEAD: %w", err)
 	}
 
 	return head.Name().Short(), nil
@@ -442,14 +442,14 @@ func (c *Client) CurrentBranch(repoPath string) (string, error) {
 func (c *Client) DeleteLocalBranch(repoPath, branch string) error {
 	exists, err := c.BranchExists(repoPath, branch)
 	if err != nil {
-		return fmt.Errorf("check branch %q existence: %w", branch, err)
+		return fmt.Errorf("проверка существования ветки %q: %w", branch, err)
 	}
 	if !exists {
-		return fmt.Errorf("branch %q not found", branch)
+		return fmt.Errorf("ветка %q не найдена", branch)
 	}
 
 	if _, err := c.runGit(repoPath, "branch", "-D", branch); err != nil {
-		return fmt.Errorf("delete branch %q: %w", branch, err)
+		return fmt.Errorf("ошибка удаления ветки %q: %w", branch, err)
 	}
 
 	return nil
@@ -470,7 +470,7 @@ func (c *Client) BranchExists(repoPath, branch string) (bool, error) {
 		return false, nil
 	}
 
-	return false, fmt.Errorf("resolve branch %q: %w", branch, err)
+	return false, fmt.Errorf("определение ветки %q: %w", branch, err)
 }
 
 // GetDirtyStats проверяет наличие измененных или неотслеживаемых файлов в рабочей директории и подсчитывает их.
@@ -535,7 +535,7 @@ func (c *Client) cloneRepo(repoURL, managedPath string) error {
 
 	_, err := c.runGit("", "clone", repoURL, managedPath)
 	if err != nil {
-		return fmt.Errorf("clone repo %q to %q: %w", repoURL, managedPath, err)
+		return fmt.Errorf("ошибка клонирования репозитория %q в %q: %w", repoURL, managedPath, err)
 	}
 
 	return nil
@@ -544,7 +544,7 @@ func (c *Client) cloneRepo(repoURL, managedPath string) error {
 func (c *Client) ensureOriginURL(repoPath, repoURL string) error {
 	stdout, err := c.runGit(repoPath, "remote", "get-url", "origin")
 	if err != nil {
-		return fmt.Errorf("read origin url: %w", err)
+		return fmt.Errorf("чтение адреса origin: %w", err)
 	}
 
 	currentURL := strings.TrimSpace(stdout)
@@ -553,7 +553,7 @@ func (c *Client) ensureOriginURL(repoPath, repoURL string) error {
 	}
 
 	if _, err := c.runGit(repoPath, "remote", "set-url", "origin", repoURL); err != nil {
-		return fmt.Errorf("set origin url: %w", err)
+		return fmt.Errorf("установка адреса origin: %w", err)
 	}
 
 	return nil
@@ -561,7 +561,7 @@ func (c *Client) ensureOriginURL(repoPath, repoURL string) error {
 
 func (c *Client) fetchPrune(repoPath string) error {
 	if _, err := c.runGit(repoPath, "fetch", "--prune", "origin"); err != nil {
-		return fmt.Errorf("fetch --prune origin: %w", err)
+		return fmt.Errorf("ошибка fetch --prune origin: %w", err)
 	}
 
 	return nil
@@ -570,7 +570,7 @@ func (c *Client) fetchPrune(repoPath string) error {
 func (c *Client) seedLocalBranchesFromOrigin(repoPath string) error {
 	stdout, err := c.runGit(repoPath, "for-each-ref", "--format=%(refname:short)", "refs/remotes/origin")
 	if err != nil {
-		return fmt.Errorf("list remote refs: %w", err)
+		return fmt.Errorf("получение списка удаленных refs: %w", err)
 	}
 
 	for _, remoteBranch := range strings.Split(strings.TrimSpace(stdout), "\n") {
@@ -592,7 +592,7 @@ func (c *Client) seedLocalBranchesFromOrigin(repoPath string) error {
 		}
 
 		if _, err := c.runGit(repoPath, "branch", "--track", branchName, remoteBranch); err != nil {
-			return fmt.Errorf("seed local branch %q from %q: %w", branchName, remoteBranch, err)
+			return fmt.Errorf("ошибка создания локальной ветки %q из %q: %w", branchName, remoteBranch, err)
 		}
 	}
 
@@ -602,7 +602,7 @@ func (c *Client) seedLocalBranchesFromOrigin(repoPath string) error {
 func (c *Client) open(repoPath string) (*git.Repository, error) {
 	repo, err := git.PlainOpen(repoPath)
 	if err != nil {
-		return nil, fmt.Errorf("open repository %s: %w", repoPath, err)
+		return nil, fmt.Errorf("открытие репозитория %s: %w", repoPath, err)
 	}
 
 	return repo, nil
@@ -637,13 +637,13 @@ func (c *Client) runGit(repoPath string, args ...string) (string, error) {
 
 	if err := cmd.Run(); err != nil {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			return "", fmt.Errorf("git %s timeout after %s: %w", args[0], c.timeout, err)
+			return "", fmt.Errorf("таймаут git %s после %s: %w", args[0], c.timeout, err)
 		}
 		stderrStr := strings.TrimSpace(stderr.String())
 		if stderrStr == "" {
 			stderrStr = err.Error()
 		}
-		return "", fmt.Errorf("git %s error: %s (%w)", args[0], stderrStr, err)
+		return "", fmt.Errorf("ошибка git %s: %s (%w)", args[0], stderrStr, err)
 	}
 
 	return stdout.String(), nil
@@ -701,13 +701,13 @@ func (c *Client) runGitStatusOnly(repoPath string, args ...string) error {
 
 	if err := cmd.Run(); err != nil {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			return fmt.Errorf("git %s timeout after %s: %w", args[0], c.timeout, err)
+			return fmt.Errorf("таймаут git %s после %s: %w", args[0], c.timeout, err)
 		}
 		stderrStr := strings.TrimSpace(stderr.String())
 		if stderrStr == "" {
 			stderrStr = err.Error()
 		}
-		return fmt.Errorf("git %s error: %s (%w)", args[0], stderrStr, err)
+		return fmt.Errorf("ошибка git %s: %s (%w)", args[0], stderrStr, err)
 	}
 
 	return nil

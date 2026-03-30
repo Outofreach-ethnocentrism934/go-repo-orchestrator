@@ -67,7 +67,7 @@ func TestPlaywrightRuntimeRequestGETWhenNotStarted(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected request error when runtime is not started")
 	}
-	if !strings.Contains(err.Error(), "playwright runtime is not started") {
+	if !strings.Contains(err.Error(), "playwright runtime не запущен") {
 		t.Fatalf("unexpected request error: %v", err)
 	}
 }

@@ -34,31 +34,31 @@ func newGenerateCommand(v *viper.Viper, logger *zap.Logger) *cobra.Command {
 
 			absConfigPath, err := filepath.Abs(configPath)
 			if err != nil {
-				return fmt.Errorf("resolve config path: %w", err)
+				return fmt.Errorf("определить абсолютный путь конфига: %w", err)
 			}
 
 			configDir := filepath.Dir(absConfigPath)
 			if err := os.MkdirAll(configDir, 0o755); err != nil {
-				return fmt.Errorf("create config directory: %w", err)
+				return fmt.Errorf("создать директорию конфига: %w", err)
 			}
 
 			cwd, err := os.Getwd()
 			if err != nil {
-				return fmt.Errorf("get working directory: %w", err)
+				return fmt.Errorf("получить текущую директорию: %w", err)
 			}
 
 			cfg, err := config.ScanDirectory(cwd)
 			if err != nil {
-				return fmt.Errorf("scan directory: %w", err)
+				return fmt.Errorf("просканировать директорию: %w", err)
 			}
 
 			data, err := yaml.Marshal(cfg)
 			if err != nil {
-				return fmt.Errorf("marshal config: %w", err)
+				return fmt.Errorf("сериализовать конфиг: %w", err)
 			}
 
 			if err := os.WriteFile(absConfigPath, data, 0o644); err != nil {
-				return fmt.Errorf("write config: %w", err)
+				return fmt.Errorf("записать конфиг: %w", err)
 			}
 
 			logger.Info("successfully generated config", zap.String("path", absConfigPath), zap.Int("repos_found", len(cfg.Repos)))

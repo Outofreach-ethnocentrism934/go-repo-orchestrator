@@ -320,7 +320,7 @@ func TestLoadFailsOnInvalidRepoURL(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected repo url validation error")
 	}
-	if !strings.Contains(err.Error(), "invalid url") {
+	if !strings.Contains(err.Error(), "некорректный url") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -388,7 +388,7 @@ func TestLoadFailsWhenSourceMissing(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected source required validation error")
 	}
-	if !strings.Contains(err.Error(), "either url or path is required") {
+	if !strings.Contains(err.Error(), "требуется указать url или path") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

@@ -64,7 +64,7 @@ func TestGenerateDeleteScriptFailsWhenAllBranchesProtected(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected error when all selected branches are protected")
 	}
-	if !strings.Contains(err.Error(), "no eligible branches selected") {
+	if !strings.Contains(err.Error(), "подходящие ветки не выбраны") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -122,7 +122,7 @@ func TestGenerateDeleteScriptSkipsAmbiguousRemoteBranches(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when only ambiguous remote branches are selected")
 	}
-	if !strings.Contains(err.Error(), "no eligible branches selected") {
+	if !strings.Contains(err.Error(), "подходящие ветки не выбраны") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

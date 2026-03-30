@@ -112,7 +112,7 @@ func NewRootCommand(version, commit, date string, logger *zap.Logger) *cobra.Com
 
 func initConfig(v *viper.Viper) error {
 	if v == nil {
-		return errors.New("viper instance is required")
+		return errors.New("требуется экземпляр viper")
 	}
 
 	configPath := strings.TrimSpace(v.GetString("config"))
@@ -128,7 +128,7 @@ func initConfig(v *viper.Viper) error {
 		if errors.As(err, &notFoundErr) || strings.Contains(err.Error(), "Not Found") {
 			return fmt.Errorf("файл конфигурации не найден: %s", configPath)
 		}
-		return fmt.Errorf("read config: %w", err)
+		return fmt.Errorf("прочитать конфиг: %w", err)
 	}
 
 	return nil
