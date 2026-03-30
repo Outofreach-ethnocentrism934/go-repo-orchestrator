@@ -22,7 +22,8 @@
   - локальные ветки: `git branch -d` / `git branch -D`
   - удаленные ветки: `git push <remote> --delete <branch>`
 - Опциональная Jira status интеграция по regex key extraction и batch search API.
-- Опциональный Playwright transport для Jira-групп с `playwright: true`.
+- Опциональный Playwright transport для Jira-групп с `playwright: true` (включается только если хотя бы одна Jira-группа его требует).
+- Логирование в stdout для runtime отключено намеренно, чтобы не ломать TUI-вывод.
 
 ## Требования
 
@@ -72,12 +73,18 @@ go install github.com/agelxnash/go-repo-orchestrator/cmd/go-repo-orchestrator@la
 - `F3` — поиск
 - `F4` — scope веток (`локальные` → `удаленные` → `все`)
 - `F5` — обновление (контекстно по табу)
+- `r` — алиас `F5`
 - `F6` — сортировка
 - `F7`:
   - в табе `Репозитории`: `fetch + pull` активного репозитория
-  - в табе `Ветки`: локальная tracking-копия удаленной ветки
+  - в табе `Ветки`: локальная tracking-копия удаленной ветки (доступно не для `url`-only репозитория)
 - `F8` — генерация скрипта
+- `g` — алиас `F8`
 - `F9` — скрыть/показать защищенные ветки (таб `Ветки`)
+- `Enter`:
+  - в табе `Репозитории`: открыть таб `Ветки` для активного репозитория
+  - в табе `Ветки`: checkout локальной ветки
+- `Space` / `Insert` — выбрать ветку
 - `F10` / `q` / `Ctrl+C` — выход
 
 ## Формат конфига
@@ -116,6 +123,7 @@ Workspace managed clone:
 
 - Триггер: push тега `v*`
 - Используется GoReleaser + GPG signing checksum-файла
+- Версия по умолчанию для dev-сборок: `dev`; релизные метаданные прошиваются через `ldflags` в `.goreleaser.yaml`
 - В workflow есть preflight-проверки (тег, секреты, `go test`, `go vet`, `goreleaser check`)
 
 GitHub Secrets для релиза:
