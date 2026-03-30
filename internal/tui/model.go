@@ -317,7 +317,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.repoStats[msg.repoName] = stat
 			delete(m.repoData, msg.repoName)
-			if msg.repoName == m.selectedRepoName() && !(msg.startup && startupInProgress) {
+			if msg.repoName == m.selectedRepoName() && (!msg.startup || !startupInProgress) {
 				m.statusLine = fmt.Sprintf("Не удалось загрузить %q: %s", msg.repoName, stat.LoadError)
 			}
 			m.activateSelectedRepoFromCache()
@@ -339,7 +339,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.ensureRepoState(msg.repoName)
 		m.activateSelectedRepoFromCache()
-		if msg.repoName == m.selectedRepoName() && !(msg.startup && startupInProgress) {
+		if msg.repoName == m.selectedRepoName() && (!msg.startup || !startupInProgress) {
 			if syncWarning != "" {
 				m.statusLine = fmt.Sprintf("Репозиторий %q загружен из локальных данных: %s", msg.repoName, syncWarning)
 			} else {
@@ -2522,52 +2522,6 @@ func (m *Model) pushLog(msg string) {
 	if len(m.eventLog) > maxEventLog {
 		m.eventLog = m.eventLog[len(m.eventLog)-maxEventLog:]
 	}
-}
-
-func (m Model) viewEventLogPanel(width, height int) string {
-	logBg := lipgloss.Color("232")
-	logFg := lipgloss.Color("250")
-	dimFg := lipgloss.Color("241")
-	borderFg := lipgloss.Color("238")
-
-	style := lipgloss.NewStyle().
-		Background(logBg).
-		Foreground(logFg).
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(borderFg).
-		Padding(0, 1).
-		Width(width).
-		Height(height)
-
-	titleSt := lipgloss.NewStyle().
-		Background(lipgloss.Color("236")).
-		Foreground(logFg).
-		Bold(true).
-		Padding(0, 1)
-
-	innerWidth := max(0, width-4)   // border + padding
-	innerHeight := max(0, height-4) // border + padding + title line
-
-	var lines []string
-	lines = append(lines, titleSt.Width(innerWidth).Render(" ЛОГА СОБЫТИЙ "))
-
-	if len(m.eventLog) == 0 {
-		lines = append(lines, lipgloss.NewStyle().Foreground(dimFg).Background(logBg).Render("  (нет событий)"))
-	} else {
-		start := 0
-		if len(m.eventLog) > innerHeight {
-			start = len(m.eventLog) - innerHeight
-		}
-		for i, entry := range m.eventLog[start:] {
-			idx := start + i
-			numStr := lipgloss.NewStyle().Foreground(dimFg).Background(logBg).Render(fmt.Sprintf("%3d ", idx+1))
-			entryStr := lipgloss.NewStyle().Foreground(logFg).Background(logBg).Render(truncate(entry, innerWidth-4))
-			lines = append(lines, numStr+entryStr)
-		}
-	}
-
-	content := strings.Join(lines, "\n")
-	return style.Render(content)
 }
 
 func valueOrDash(s string) string {
