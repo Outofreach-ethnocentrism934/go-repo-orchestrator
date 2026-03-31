@@ -538,7 +538,7 @@ func TestLoadRepoBranchesProtectsRemoteBranchWithUnknownRemoteName(t *testing.T)
 	if !rb.Branches[0].Protected {
 		t.Fatal("expected branch to be protected")
 	}
-	if rb.Branches[0].Reason != "remote name unknown" {
+	if rb.Branches[0].Reason != "имя remote неизвестно" {
 		t.Fatalf("unexpected protection reason: %q", rb.Branches[0].Reason)
 	}
 }
@@ -953,7 +953,7 @@ func TestLoadRepoBranchesProtectsRemoteBranchByKeepPattern(t *testing.T) {
 	if !rb.Branches[0].Protected {
 		t.Fatal("expected branch to be protected")
 	}
-	if !strings.Contains(rb.Branches[0].Reason, "matched keep pattern") {
+	if !strings.Contains(rb.Branches[0].Reason, "совпадение с keep pattern") {
 		t.Fatalf("unexpected protection reason: %q", rb.Branches[0].Reason)
 	}
 }
@@ -1030,7 +1030,7 @@ func TestLoadRepoBranchesProtectsAndSkipsRemoteDefaultBranch(t *testing.T) {
 	if !rb.Branches[0].Protected {
 		t.Fatal("expected remote default branch to be protected")
 	}
-	if rb.Branches[0].Reason != "default branch" {
+	if rb.Branches[0].Reason != "ветка по умолчанию" {
 		t.Fatalf("unexpected protection reason: %q", rb.Branches[0].Reason)
 	}
 

@@ -372,7 +372,7 @@ func (r RepoConfig) IsProtected(branch string) bool {
 func (r RepoConfig) ProtectedReason(branch string) (string, bool) {
 	for _, p := range r.keep {
 		if p.re.MatchString(branch) {
-			return "matched keep pattern: " + p.raw, true
+			return "совпадение с keep pattern: " + p.raw, true
 		}
 	}
 

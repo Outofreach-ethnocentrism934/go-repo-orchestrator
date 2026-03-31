@@ -8,16 +8,16 @@ import (
 // Evaluate применяет базовые правила фильтрации ветки и возвращает допуск и причину.
 func Evaluate(repo config.RepoConfig, branch model.BranchInfo, currentBranch, defaultBranch string) (bool, string) {
 	if branch.Name == currentBranch {
-		return false, "current branch"
+		return false, "текущая ветка"
 	}
 
 	if defaultBranch != "" && branch.Name == defaultBranch {
-		return false, "default branch"
+		return false, "ветка по умолчанию"
 	}
 
 	if reason, ok := repo.ProtectedReason(branch.Name); ok {
 		return false, reason
 	}
 
-	return true, "eligible"
+	return true, "подходит"
 }

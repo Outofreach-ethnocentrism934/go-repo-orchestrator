@@ -117,6 +117,11 @@ Workspace managed clone:
 - `go-repo-orchestrator-<repo>-delete-<session>-<timestamp>.sh`
 - `go-repo-orchestrator-<repo>-delete-<session>-<timestamp>.bat`
 
+## Roadmap
+
+- Возможное введение полноценного i18n-слоя для CLI/TUI и пользовательских сообщений.
+- Потенциальная опция автооткрытия IDE (VS Code / JetBrains) для выбранного репозитория и/или ветки.
+
 ## Release и подписи (maintainers)
 
 Релизный workflow: `.github/workflows/release.yaml`.

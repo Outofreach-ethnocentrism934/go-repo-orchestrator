@@ -35,7 +35,7 @@ func NewRootCommand(version, commit, date string, logger *zap.Logger) *cobra.Com
 
 	cmd := &cobra.Command{
 		Use:           "go-repo-orchestrator",
-		Short:         "Safe local git branch script generation",
+		Short:         "Безопасная генерация локальных скриптов удаления git-веток",
 		Version:       fmt.Sprintf("%s (commit: %s, date: %s)", version, commit, date),
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -95,7 +95,7 @@ func NewRootCommand(version, commit, date string, logger *zap.Logger) *cobra.Com
 	}
 
 	cmd.PersistentFlags().StringVar(&opts.ConfigPath, "config", opts.ConfigPath, "путь к YAML-конфигу (обязательно)")
-	cmd.PersistentFlags().StringVar(&opts.StateDir, "state-dir", opts.StateDir, "state directory for app state and managed workspace")
+	cmd.PersistentFlags().StringVar(&opts.StateDir, "state-dir", opts.StateDir, "каталог состояния приложения и управляемого рабочего каталога")
 
 	mustBind(cmd, v, "config", "config")
 	mustBind(cmd, v, "state_dir", "state-dir")

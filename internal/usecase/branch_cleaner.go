@@ -486,22 +486,22 @@ func evaluateBranchProtection(repo config.RepoConfig, branch model.BranchInfo, c
 
 func evaluateRemoteBranchProtection(repo config.RepoConfig, branch model.BranchInfo, defaultBranch string) (bool, string) {
 	if strings.TrimSpace(branch.RemoteName) == "" {
-		return false, "remote name unknown"
+		return false, "имя remote неизвестно"
 	}
 	if strings.TrimSpace(branch.Name) == "" {
-		return false, "remote branch name unknown"
+		return false, "имя удаленной ветки неизвестно"
 	}
 	if isRemoteDefaultBranch(branch, defaultBranch) {
-		return false, "default branch"
+		return false, "ветка по умолчанию"
 	}
 	if !isRemoteDeleteResolvable(branch) {
-		return false, "remote ref is ambiguous for delete"
+		return false, "remote ref неоднозначен для удаления"
 	}
 	if reason, ok := repo.ProtectedReason(branch.Name); ok {
 		return false, reason
 	}
 
-	return true, "eligible"
+	return true, "подходит"
 }
 
 func isRemoteDefaultBranch(branch model.BranchInfo, defaultBranch string) bool {

@@ -26,7 +26,7 @@ func TestEvaluate(t *testing.T) {
 	}
 	repo := cfg.Repos[0]
 
-	if _, reason := Evaluate(repo, model.BranchInfo{Name: "main", LastCommitAt: time.Now()}, "feature/a", "main"); reason != "default branch" {
+	if _, reason := Evaluate(repo, model.BranchInfo{Name: "main", LastCommitAt: time.Now()}, "feature/a", "main"); reason != "ветка по умолчанию" {
 		t.Fatalf("unexpected reason for default branch: %s", reason)
 	}
 
