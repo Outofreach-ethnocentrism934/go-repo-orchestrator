@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -15,21 +16,21 @@ import (
 )
 
 type gitClient interface {
-	ResolveRepoPath(repoName, repoURL, localPath string) (string, error)
+	ResolveRepoPath(ctx context.Context, repoName, repoURL, localPath string) (string, error)
 	ManagedRepoPath(repoName, repoURL string) string
-	EnsureManagedClone(repoName, repoURL string) (string, error)
-	FetchAndPull(repoPath, repoURL string) error
-	DetectDefaultBranch(repoPath, currentBranch string) (string, error)
-	ListBranches(repoPath string) ([]model.BranchInfo, error)
-	CurrentBranch(repoPath string) (string, error)
-	DeleteLocalBranch(repoPath, branch string) error
-	BranchMetadata(repoPath, branch, defaultBranch string) (model.MergeStatus, string, error)
-	GetDirtyStats(repoPath string) (model.DirtyStats, error)
-	GetRepoStat(repoPath string) (model.RepoStat, error)
-	SyncRemote(repoPath, repoURL string) error
-	UpdateOpensourceRepo(url, targetPath, branch string) error
-	ForceCheckout(repoPath, branch string) error
-	CreateTrackingBranchAndCheckout(repoPath, localBranch, remoteBranch string) error
+	EnsureManagedClone(ctx context.Context, repoName, repoURL string) (string, error)
+	FetchAndPull(ctx context.Context, repoPath, repoURL string) error
+	DetectDefaultBranch(ctx context.Context, repoPath, currentBranch string) (string, error)
+	ListBranches(ctx context.Context, repoPath string) ([]model.BranchInfo, error)
+	CurrentBranch(ctx context.Context, repoPath string) (string, error)
+	DeleteLocalBranch(ctx context.Context, repoPath, branch string) error
+	BranchMetadata(ctx context.Context, repoPath, branch, defaultBranch string) (model.MergeStatus, string, error)
+	GetDirtyStats(ctx context.Context, repoPath string) (model.DirtyStats, error)
+	GetRepoStat(ctx context.Context, repoPath string) (model.RepoStat, error)
+	SyncRemote(ctx context.Context, repoPath, repoURL string) error
+	UpdateOpensourceRepo(ctx context.Context, url, targetPath, branch string) error
+	ForceCheckout(ctx context.Context, repoPath, branch string) error
+	CreateTrackingBranchAndCheckout(ctx context.Context, repoPath, localBranch, remoteBranch string) error
 }
 
 // Cleaner координирует загрузку веток и генерацию скрипта удаления.
@@ -83,28 +84,28 @@ func WithLogger(logger *zap.Logger) CleanerOption {
 }
 
 // LoadRepoBranches загружает ветки и помечает их по правилам доступности к удалению.
-func (c *Cleaner) LoadRepoBranches(repo config.RepoConfig) (model.RepoBranches, error) {
-	managedPath, syncWarning, err := c.resolveRepoForRead(repo)
+func (c *Cleaner) LoadRepoBranches(ctx context.Context, repo config.RepoConfig) (model.RepoBranches, error) {
+	managedPath, syncWarning, err := c.resolveRepoForRead(ctx, repo)
 	if err != nil {
 		return model.RepoBranches{}, err
 	}
 
-	allBranches, err := c.git.ListBranches(managedPath)
+	allBranches, err := c.git.ListBranches(ctx, managedPath)
 	if err != nil {
 		return model.RepoBranches{}, err
 	}
 
-	currentBranch, err := c.git.CurrentBranch(managedPath)
+	currentBranch, err := c.git.CurrentBranch(ctx, managedPath)
 	if err != nil {
 		return model.RepoBranches{}, err
 	}
 
-	defaultBranch, err := c.git.DetectDefaultBranch(managedPath, currentBranch)
+	defaultBranch, err := c.git.DetectDefaultBranch(ctx, managedPath, currentBranch)
 	if err != nil {
 		return model.RepoBranches{}, err
 	}
 
-	dirtyStats, err := c.git.GetDirtyStats(managedPath)
+	dirtyStats, err := c.git.GetDirtyStats(ctx, managedPath)
 	if err != nil {
 		dirtyStats = model.DirtyStats{}
 	}
@@ -151,7 +152,7 @@ func (c *Cleaner) LoadRepoBranches(repo config.RepoConfig) (model.RepoBranches, 
 			branch.JiraReason = model.JiraStatusReasonNoRegexMatch
 		}
 
-		mergeStatus, baseBranch, metaErr := c.git.BranchMetadata(managedPath, branch.QualifiedName, defaultBranch)
+		mergeStatus, baseBranch, metaErr := c.git.BranchMetadata(ctx, managedPath, branch.QualifiedName, defaultBranch)
 		if metaErr != nil {
 			mergeStatus = model.MergeStatusUnknown
 			baseBranch = "-"
@@ -303,13 +304,13 @@ func (c *Cleaner) logJiraMappingSummary(repoName string, stats jiraMappingStats)
 }
 
 // LoadRepoStat быстро (без загрузки веток) получает текущую ветку и статус (dirty/clean).
-func (c *Cleaner) LoadRepoStat(repo config.RepoConfig) (model.RepoStat, error) {
-	managedPath, syncWarning, err := c.resolveRepoForRead(repo)
+func (c *Cleaner) LoadRepoStat(ctx context.Context, repo config.RepoConfig) (model.RepoStat, error) {
+	managedPath, syncWarning, err := c.resolveRepoForRead(ctx, repo)
 	if err != nil {
 		return model.RepoStat{}, err
 	}
 
-	stat, err := c.git.GetRepoStat(managedPath)
+	stat, err := c.git.GetRepoStat(ctx, managedPath)
 	if err != nil {
 		return model.RepoStat{}, fmt.Errorf("получить статус репозитория: %w", err)
 	}
@@ -318,24 +319,25 @@ func (c *Cleaner) LoadRepoStat(repo config.RepoConfig) (model.RepoStat, error) {
 	return stat, nil
 }
 
-func (c *Cleaner) resolveRepoForRead(repo config.RepoConfig) (string, string, error) {
+func (c *Cleaner) resolveRepoForRead(ctx context.Context, repo config.RepoConfig) (string, string, error) {
 	switch repo.SourceType() {
 	case "url":
-		managedPath, err := c.git.EnsureManagedClone(repo.Name, repo.URL)
+		managedPath, err := c.git.EnsureManagedClone(ctx, repo.Name, repo.URL)
 		if err == nil {
 			return managedPath, "", nil
 		}
 
 		fallbackPath := c.git.ManagedRepoPath(repo.Name, repo.URL)
-		if _, fallbackErr := c.git.ResolveRepoPath(repo.Name, "", fallbackPath); fallbackErr != nil {
+		fallbackCtx := context.WithoutCancel(ctx)
+		if _, fallbackErr := c.git.ResolveRepoPath(fallbackCtx, repo.Name, "", fallbackPath); fallbackErr != nil {
 			return "", "", fmt.Errorf("подготовить репозиторий: %w", err)
 		}
 
 		return fallbackPath, fmt.Sprintf("синхронизация remote не выполнена: %v", err), nil
 
 	case "opensource":
-		if updateErr := c.git.UpdateOpensourceRepo(repo.URL, repo.Path, repo.Branch.Autoswitch); updateErr != nil {
-			localPath, fallbackErr := c.git.ResolveRepoPath(repo.Name, "", repo.Path)
+		if updateErr := c.git.UpdateOpensourceRepo(ctx, repo.URL, repo.Path, repo.Branch.Autoswitch); updateErr != nil {
+			localPath, fallbackErr := c.git.ResolveRepoPath(ctx, repo.Name, "", repo.Path)
 			if fallbackErr != nil {
 				return "", "", fmt.Errorf("подготовить репозиторий: %w", updateErr)
 			}
@@ -343,7 +345,7 @@ func (c *Cleaner) resolveRepoForRead(repo config.RepoConfig) (string, string, er
 			return localPath, fmt.Sprintf("синхронизация remote не выполнена: %v", updateErr), nil
 		}
 
-		localPath, err := c.git.ResolveRepoPath(repo.Name, "", repo.Path)
+		localPath, err := c.git.ResolveRepoPath(ctx, repo.Name, "", repo.Path)
 		if err != nil {
 			return "", "", fmt.Errorf("подготовить репозиторий: %w", err)
 		}
@@ -351,7 +353,7 @@ func (c *Cleaner) resolveRepoForRead(repo config.RepoConfig) (string, string, er
 		return localPath, "", nil
 
 	default:
-		managedPath, err := c.git.ResolveRepoPath(repo.Name, repo.URL, repo.Path)
+		managedPath, err := c.git.ResolveRepoPath(ctx, repo.Name, repo.URL, repo.Path)
 		if err != nil {
 			return "", "", fmt.Errorf("подготовить репозиторий: %w", err)
 		}
@@ -430,35 +432,35 @@ func (c *Cleaner) GenerateDeleteScript(repo config.RepoConfig, repoPath string, 
 }
 
 // ForceCheckoutLocalBranch проксирует вызов к git для принудительного переключения ветки
-func (c *Cleaner) ForceCheckoutLocalBranch(repo config.RepoConfig, branch string) error {
-	managedPath, err := c.git.ResolveRepoPath(repo.Name, repo.URL, repo.Path)
+func (c *Cleaner) ForceCheckoutLocalBranch(ctx context.Context, repo config.RepoConfig, branch string) error {
+	managedPath, err := c.git.ResolveRepoPath(ctx, repo.Name, repo.URL, repo.Path)
 	if err != nil {
 		return fmt.Errorf("подготовить репозиторий: %w", err)
 	}
 
-	return c.git.ForceCheckout(managedPath, branch)
+	return c.git.ForceCheckout(ctx, managedPath, branch)
 }
 
 // CreateLocalTrackingBranch создает локальную tracking-ветку из remote и переключается на нее.
-func (c *Cleaner) CreateLocalTrackingBranch(repo config.RepoConfig, localBranch, remoteBranch string) error {
-	managedPath, err := c.git.ResolveRepoPath(repo.Name, repo.URL, repo.Path)
+func (c *Cleaner) CreateLocalTrackingBranch(ctx context.Context, repo config.RepoConfig, localBranch, remoteBranch string) error {
+	managedPath, err := c.git.ResolveRepoPath(ctx, repo.Name, repo.URL, repo.Path)
 	if err != nil {
 		return fmt.Errorf("подготовить репозиторий: %w", err)
 	}
 
-	return c.git.CreateTrackingBranchAndCheckout(managedPath, localBranch, remoteBranch)
+	return c.git.CreateTrackingBranchAndCheckout(ctx, managedPath, localBranch, remoteBranch)
 }
 
 // UpdateOpensource синхронизирует opensource-репозиторий (clone/fetch/reset).
-func (c *Cleaner) UpdateOpensource(repo config.RepoConfig) error {
+func (c *Cleaner) UpdateOpensource(ctx context.Context, repo config.RepoConfig) error {
 	if repo.SourceType() != "opensource" {
 		return fmt.Errorf("репозиторий %q не является opensource (требуются url и path)", repo.Name)
 	}
-	return c.git.UpdateOpensourceRepo(repo.URL, repo.Path, repo.Branch.Autoswitch)
+	return c.git.UpdateOpensourceRepo(ctx, repo.URL, repo.Path, repo.Branch.Autoswitch)
 }
 
 // FetchAndPullRepo выполняет безопасное обновление выбранного репозитория через fetch + pull.
-func (c *Cleaner) FetchAndPullRepo(repo config.RepoConfig) error {
+func (c *Cleaner) FetchAndPullRepo(ctx context.Context, repo config.RepoConfig) error {
 	var (
 		repoPath string
 		err      error
@@ -466,18 +468,18 @@ func (c *Cleaner) FetchAndPullRepo(repo config.RepoConfig) error {
 
 	switch repo.SourceType() {
 	case "url":
-		repoPath, err = c.git.EnsureManagedClone(repo.Name, repo.URL)
+		repoPath, err = c.git.EnsureManagedClone(ctx, repo.Name, repo.URL)
 		if err != nil {
 			return fmt.Errorf("подготовить репозиторий: %w", err)
 		}
 	default:
-		repoPath, err = c.git.ResolveRepoPath(repo.Name, "", repo.Path)
+		repoPath, err = c.git.ResolveRepoPath(ctx, repo.Name, "", repo.Path)
 		if err != nil {
 			return fmt.Errorf("подготовить репозиторий: %w", err)
 		}
 	}
 
-	if err := c.git.FetchAndPull(repoPath, repo.URL); err != nil {
+	if err := c.git.FetchAndPull(ctx, repoPath, repo.URL); err != nil {
 		return fmt.Errorf("выполнить fetch и pull: %w", err)
 	}
 

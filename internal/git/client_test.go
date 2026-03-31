@@ -1,6 +1,7 @@
 package git
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -33,7 +34,7 @@ func TestResolveRepoPathAcceptsGitWorktree(t *testing.T) {
 	runCmd(t, mainRepoPath, "git", "worktree", "add", worktreePath, "feature/worktree")
 
 	client := NewClient(5*time.Second, filepath.Join(dir, "workspace"))
-	resolved, err := client.ResolveRepoPath("local", "", worktreePath)
+	resolved, err := client.ResolveRepoPath(context.Background(), "local", "", worktreePath)
 	if err != nil {
 		t.Fatalf("resolve worktree repo path: %v", err)
 	}
@@ -84,7 +85,7 @@ func TestListBranchesIncludesRemoteBranchesWithUniqueKeys(t *testing.T) {
 	runCmd(t, clonePath, "git", "fetch", "--prune", "origin")
 
 	client := NewClient(5*time.Second, filepath.Join(dir, "workspace"))
-	branches, err := client.ListBranches(clonePath)
+	branches, err := client.ListBranches(context.Background(), clonePath)
 	if err != nil {
 		t.Fatalf("list branches: %v", err)
 	}
@@ -154,7 +155,7 @@ func TestCreateTrackingBranchAndCheckoutFromRemote(t *testing.T) {
 	runCmd(t, clonePath, "git", "fetch", "--prune", "origin")
 
 	client := NewClient(5*time.Second, filepath.Join(dir, "workspace"))
-	err := client.CreateTrackingBranchAndCheckout(clonePath, "feature/tracking", "origin/feature/tracking")
+	err := client.CreateTrackingBranchAndCheckout(context.Background(), clonePath, "feature/tracking", "origin/feature/tracking")
 	if err != nil {
 		t.Fatalf("create tracking branch: %v", err)
 	}
@@ -192,11 +193,11 @@ func TestUpdateOpensourceRepoClonesWhenPathMissing(t *testing.T) {
 	runCmd(t, dir, "git", "--git-dir", remotePath, "symbolic-ref", "HEAD", "refs/heads/main")
 
 	client := NewClient(5*time.Second, filepath.Join(dir, "workspace"))
-	if err := client.UpdateOpensourceRepo(remotePath, targetPath, ""); err != nil {
+	if err := client.UpdateOpensourceRepo(context.Background(), remotePath, targetPath, ""); err != nil {
 		t.Fatalf("update opensource repo: %v", err)
 	}
 
-	if !isGitRepo(targetPath) {
+	if !isGitRepo(context.Background(), targetPath) {
 		t.Fatalf("expected git repository at %s after update", targetPath)
 	}
 }
@@ -234,7 +235,7 @@ func TestUpdateOpensourceRepoFetchesExistingRepoWithoutResetWhenAutoswitchEmpty(
 	runCmd(t, seedPath, "git", "push", "-u", "origin", "feature/new-remote")
 
 	client := NewClient(5*time.Second, filepath.Join(dir, "workspace"))
-	if err := client.UpdateOpensourceRepo(remotePath, targetPath, ""); err != nil {
+	if err := client.UpdateOpensourceRepo(context.Background(), remotePath, targetPath, ""); err != nil {
 		t.Fatalf("update opensource repo: %v", err)
 	}
 
@@ -284,7 +285,7 @@ func TestUpdateOpensourceRepoAutoswitchResetsAndChecksOutBranch(t *testing.T) {
 	writeFile(t, filepath.Join(targetPath, "README.md"), "dirty\n")
 
 	client := NewClient(5*time.Second, filepath.Join(dir, "workspace"))
-	if err := client.UpdateOpensourceRepo(remotePath, targetPath, "develop"); err != nil {
+	if err := client.UpdateOpensourceRepo(context.Background(), remotePath, targetPath, "develop"); err != nil {
 		t.Fatalf("update opensource repo with autoswitch: %v", err)
 	}
 
@@ -337,7 +338,7 @@ func TestFetchAndPullFastForwardUpdatesCurrentBranch(t *testing.T) {
 	runCmd(t, seedPath, "git", "push", "origin", "main")
 
 	client := NewClient(5*time.Second, filepath.Join(dir, "workspace"))
-	if err := client.FetchAndPull(clonePath, remotePath); err != nil {
+	if err := client.FetchAndPull(context.Background(), clonePath, remotePath); err != nil {
 		t.Fatalf("fetch and pull: %v", err)
 	}
 
@@ -377,12 +378,56 @@ func TestFetchAndPullFailsWithoutUpstream(t *testing.T) {
 	runCmd(t, repoPath, "git", "checkout", "-b", "feature/no-upstream")
 
 	client := NewClient(5*time.Second, filepath.Join(dir, "workspace"))
-	err := client.FetchAndPull(repoPath, "")
+	err := client.FetchAndPull(context.Background(), repoPath, "")
 	if err == nil {
 		t.Fatal("expected error for branch without upstream")
 	}
 	if !strings.Contains(err.Error(), "не настроен upstream") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRunGitRespectsCanceledParentContext(t *testing.T) {
+	t.Parallel()
+
+	client := NewClient(5*time.Second, t.TempDir())
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := client.runGit(ctx, "", "version")
+	if err == nil {
+		t.Fatal("expected cancellation error")
+	}
+	if !strings.Contains(err.Error(), "отменен") {
+		t.Fatalf("expected cancellation error text, got %v", err)
+	}
+}
+
+func TestLockForPathWaitCanBeCanceledByContext(t *testing.T) {
+	t.Parallel()
+
+	client := NewClient(5*time.Second, t.TempDir())
+	path := filepath.Join(t.TempDir(), "repo")
+
+	unlock, err := client.lockForPath(context.Background(), path)
+	if err != nil {
+		t.Fatalf("acquire initial lock: %v", err)
+	}
+	defer unlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+
+	start := time.Now()
+	_, err = client.lockForPath(ctx, path)
+	if err == nil {
+		t.Fatal("expected lock wait cancellation error")
+	}
+	if !strings.Contains(err.Error(), "ожидание блокировки отменено") {
+		t.Fatalf("unexpected lock wait error: %v", err)
+	}
+	if time.Since(start) > time.Second {
+		t.Fatalf("lock wait cancellation took too long: %s", time.Since(start))
 	}
 }
 

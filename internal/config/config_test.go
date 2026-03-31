@@ -1,6 +1,8 @@
 package config
 
 import (
+	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -551,7 +553,7 @@ func TestScanDirectoryIncludesPathAndOriginURLWhenAvailable(t *testing.T) {
 	runCommand(t, repoWithOrigin, "git", "remote", "add", "origin", remotePath)
 	runCommand(t, root, "git", "init", repoWithoutOrigin)
 
-	cfg, err := ScanDirectory(root)
+	cfg, err := ScanDirectory(context.Background(), root)
 	if err != nil {
 		t.Fatalf("scan directory failed: %v", err)
 	}
@@ -585,6 +587,21 @@ func TestScanDirectoryIncludesPathAndOriginURLWhenAvailable(t *testing.T) {
 	}
 	if withoutOrigin.URL != "" {
 		t.Fatalf("expected empty url for repo without origin, got %q", withoutOrigin.URL)
+	}
+}
+
+func TestScanDirectoryReturnsContextErrorWhenCanceled(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := ScanDirectory(ctx, t.TempDir())
+	if err == nil {
+		t.Fatal("expected context cancellation error")
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected wrapped context.Canceled, got %v", err)
 	}
 }
 

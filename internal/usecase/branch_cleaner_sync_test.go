@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -13,19 +14,19 @@ import (
 )
 
 type fakeGitClient struct {
-	resolveRepoPathFn     func(repoName, repoURL, localPath string) (string, error)
+	resolveRepoPathFn     func(ctx context.Context, repoName, repoURL, localPath string) (string, error)
 	managedRepoPathFn     func(repoName, repoURL string) string
-	ensureManagedCloneFn  func(repoName, repoURL string) (string, error)
-	fetchAndPullFn        func(repoPath, repoURL string) error
-	detectDefaultBranchFn func(repoPath, currentBranch string) (string, error)
-	listBranchesFn        func(repoPath string) ([]model.BranchInfo, error)
-	currentBranchFn       func(repoPath string) (string, error)
-	branchMetadataFn      func(repoPath, branch, defaultBranch string) (model.MergeStatus, string, error)
-	getDirtyStatsFn       func(repoPath string) (model.DirtyStats, error)
-	getRepoStatFn         func(repoPath string) (model.RepoStat, error)
-	syncRemoteFn          func(repoPath, repoURL string) error
-	updateOpensourceFn    func(url, targetPath, branch string) error
-	createTrackingFn      func(repoPath, localBranch, remoteBranch string) error
+	ensureManagedCloneFn  func(ctx context.Context, repoName, repoURL string) (string, error)
+	fetchAndPullFn        func(ctx context.Context, repoPath, repoURL string) error
+	detectDefaultBranchFn func(ctx context.Context, repoPath, currentBranch string) (string, error)
+	listBranchesFn        func(ctx context.Context, repoPath string) ([]model.BranchInfo, error)
+	currentBranchFn       func(ctx context.Context, repoPath string) (string, error)
+	branchMetadataFn      func(ctx context.Context, repoPath, branch, defaultBranch string) (model.MergeStatus, string, error)
+	getDirtyStatsFn       func(ctx context.Context, repoPath string) (model.DirtyStats, error)
+	getRepoStatFn         func(ctx context.Context, repoPath string) (model.RepoStat, error)
+	syncRemoteFn          func(ctx context.Context, repoPath, repoURL string) error
+	updateOpensourceFn    func(ctx context.Context, url, targetPath, branch string) error
+	createTrackingFn      func(ctx context.Context, repoPath, localBranch, remoteBranch string) error
 }
 
 type fakeStatusResolver struct {
@@ -47,9 +48,9 @@ func (f fakeStatusResolver) PrefetchStatuses(requests []jira.StatusBatchRequest)
 	}
 }
 
-func (f *fakeGitClient) ResolveRepoPath(repoName, repoURL, localPath string) (string, error) {
+func (f *fakeGitClient) ResolveRepoPath(ctx context.Context, repoName, repoURL, localPath string) (string, error) {
 	if f.resolveRepoPathFn != nil {
-		return f.resolveRepoPathFn(repoName, repoURL, localPath)
+		return f.resolveRepoPathFn(ctx, repoName, repoURL, localPath)
 	}
 	return "", nil
 }
@@ -61,87 +62,87 @@ func (f *fakeGitClient) ManagedRepoPath(repoName, repoURL string) string {
 	return ""
 }
 
-func (f *fakeGitClient) EnsureManagedClone(repoName, repoURL string) (string, error) {
+func (f *fakeGitClient) EnsureManagedClone(ctx context.Context, repoName, repoURL string) (string, error) {
 	if f.ensureManagedCloneFn != nil {
-		return f.ensureManagedCloneFn(repoName, repoURL)
+		return f.ensureManagedCloneFn(ctx, repoName, repoURL)
 	}
 	return "", nil
 }
 
-func (f *fakeGitClient) FetchAndPull(repoPath, repoURL string) error {
+func (f *fakeGitClient) FetchAndPull(ctx context.Context, repoPath, repoURL string) error {
 	if f.fetchAndPullFn != nil {
-		return f.fetchAndPullFn(repoPath, repoURL)
+		return f.fetchAndPullFn(ctx, repoPath, repoURL)
 	}
 	return nil
 }
 
-func (f *fakeGitClient) DetectDefaultBranch(repoPath, currentBranch string) (string, error) {
+func (f *fakeGitClient) DetectDefaultBranch(ctx context.Context, repoPath, currentBranch string) (string, error) {
 	if f.detectDefaultBranchFn != nil {
-		return f.detectDefaultBranchFn(repoPath, currentBranch)
+		return f.detectDefaultBranchFn(ctx, repoPath, currentBranch)
 	}
 	return "", nil
 }
 
-func (f *fakeGitClient) ListBranches(repoPath string) ([]model.BranchInfo, error) {
+func (f *fakeGitClient) ListBranches(ctx context.Context, repoPath string) ([]model.BranchInfo, error) {
 	if f.listBranchesFn != nil {
-		return f.listBranchesFn(repoPath)
+		return f.listBranchesFn(ctx, repoPath)
 	}
 	return nil, nil
 }
 
-func (f *fakeGitClient) CurrentBranch(repoPath string) (string, error) {
+func (f *fakeGitClient) CurrentBranch(ctx context.Context, repoPath string) (string, error) {
 	if f.currentBranchFn != nil {
-		return f.currentBranchFn(repoPath)
+		return f.currentBranchFn(ctx, repoPath)
 	}
 	return "", nil
 }
 
-func (f *fakeGitClient) DeleteLocalBranch(repoPath, branch string) error {
+func (f *fakeGitClient) DeleteLocalBranch(_ context.Context, repoPath, branch string) error {
 	return nil
 }
 
-func (f *fakeGitClient) BranchMetadata(repoPath, branch, defaultBranch string) (model.MergeStatus, string, error) {
+func (f *fakeGitClient) BranchMetadata(ctx context.Context, repoPath, branch, defaultBranch string) (model.MergeStatus, string, error) {
 	if f.branchMetadataFn != nil {
-		return f.branchMetadataFn(repoPath, branch, defaultBranch)
+		return f.branchMetadataFn(ctx, repoPath, branch, defaultBranch)
 	}
 	return model.MergeStatusUnknown, "-", nil
 }
 
-func (f *fakeGitClient) GetDirtyStats(repoPath string) (model.DirtyStats, error) {
+func (f *fakeGitClient) GetDirtyStats(ctx context.Context, repoPath string) (model.DirtyStats, error) {
 	if f.getDirtyStatsFn != nil {
-		return f.getDirtyStatsFn(repoPath)
+		return f.getDirtyStatsFn(ctx, repoPath)
 	}
 	return model.DirtyStats{}, nil
 }
 
-func (f *fakeGitClient) GetRepoStat(repoPath string) (model.RepoStat, error) {
+func (f *fakeGitClient) GetRepoStat(ctx context.Context, repoPath string) (model.RepoStat, error) {
 	if f.getRepoStatFn != nil {
-		return f.getRepoStatFn(repoPath)
+		return f.getRepoStatFn(ctx, repoPath)
 	}
 	return model.RepoStat{}, nil
 }
 
-func (f *fakeGitClient) SyncRemote(repoPath, repoURL string) error {
+func (f *fakeGitClient) SyncRemote(ctx context.Context, repoPath, repoURL string) error {
 	if f.syncRemoteFn != nil {
-		return f.syncRemoteFn(repoPath, repoURL)
+		return f.syncRemoteFn(ctx, repoPath, repoURL)
 	}
 	return nil
 }
 
-func (f *fakeGitClient) UpdateOpensourceRepo(url, targetPath, branch string) error {
+func (f *fakeGitClient) UpdateOpensourceRepo(ctx context.Context, url, targetPath, branch string) error {
 	if f.updateOpensourceFn != nil {
-		return f.updateOpensourceFn(url, targetPath, branch)
+		return f.updateOpensourceFn(ctx, url, targetPath, branch)
 	}
 	return nil
 }
 
-func (f *fakeGitClient) ForceCheckout(repoPath, branch string) error {
+func (f *fakeGitClient) ForceCheckout(_ context.Context, repoPath, branch string) error {
 	return nil
 }
 
-func (f *fakeGitClient) CreateTrackingBranchAndCheckout(repoPath, localBranch, remoteBranch string) error {
+func (f *fakeGitClient) CreateTrackingBranchAndCheckout(ctx context.Context, repoPath, localBranch, remoteBranch string) error {
 	if f.createTrackingFn != nil {
-		return f.createTrackingFn(repoPath, localBranch, remoteBranch)
+		return f.createTrackingFn(ctx, repoPath, localBranch, remoteBranch)
 	}
 	return nil
 }
@@ -153,7 +154,7 @@ func TestLoadRepoBranchesOpensourceClonesMissingPathViaUpdateFlow(t *testing.T) 
 	resolveCalled := false
 
 	git := &fakeGitClient{
-		updateOpensourceFn: func(url, targetPath, branch string) error {
+		updateOpensourceFn: func(_ context.Context, url, targetPath, branch string) error {
 			updateCalled = true
 			if url != "ssh://git.example/repo.git" {
 				t.Fatalf("unexpected opensource url: %q", url)
@@ -166,24 +167,24 @@ func TestLoadRepoBranchesOpensourceClonesMissingPathViaUpdateFlow(t *testing.T) 
 			}
 			return nil
 		},
-		resolveRepoPathFn: func(repoName, repoURL, localPath string) (string, error) {
+		resolveRepoPathFn: func(_ context.Context, repoName, repoURL, localPath string) (string, error) {
 			resolveCalled = true
 			if repoURL != "" {
 				t.Fatalf("unexpected repoURL in ResolveRepoPath: %q", repoURL)
 			}
 			return localPath, nil
 		},
-		listBranchesFn: func(repoPath string) ([]model.BranchInfo, error) {
+		listBranchesFn: func(_ context.Context, repoPath string) ([]model.BranchInfo, error) {
 			return []model.BranchInfo{{
 				Name:          "feature/local-bff",
 				QualifiedName: "feature/local-bff",
 				Scope:         model.BranchScopeLocal,
 			}}, nil
 		},
-		currentBranchFn: func(repoPath string) (string, error) {
+		currentBranchFn: func(_ context.Context, repoPath string) (string, error) {
 			return "main", nil
 		},
-		detectDefaultBranchFn: func(repoPath, currentBranch string) (string, error) {
+		detectDefaultBranchFn: func(_ context.Context, repoPath, currentBranch string) (string, error) {
 			return "main", nil
 		},
 	}
@@ -198,7 +199,7 @@ func TestLoadRepoBranchesOpensourceClonesMissingPathViaUpdateFlow(t *testing.T) 
 		},
 	}
 
-	rb, err := cleaner.LoadRepoBranches(repo)
+	rb, err := cleaner.LoadRepoBranches(context.Background(), repo)
 	if err != nil {
 		t.Fatalf("expected opensource update success, got error: %v", err)
 	}
@@ -229,26 +230,26 @@ func TestLoadRepoBranchesOpensourceKeepsLocalDataAndReturnsSyncWarning(t *testin
 	t.Parallel()
 
 	git := &fakeGitClient{
-		updateOpensourceFn: func(url, targetPath, branch string) error {
+		updateOpensourceFn: func(_ context.Context, url, targetPath, branch string) error {
 			return errors.New("connection refused")
 		},
-		resolveRepoPathFn: func(repoName, repoURL, localPath string) (string, error) {
+		resolveRepoPathFn: func(_ context.Context, repoName, repoURL, localPath string) (string, error) {
 			if repoURL != "" {
 				t.Fatalf("unexpected repoURL in ResolveRepoPath: %q", repoURL)
 			}
 			return localPath, nil
 		},
-		listBranchesFn: func(repoPath string) ([]model.BranchInfo, error) {
+		listBranchesFn: func(_ context.Context, repoPath string) ([]model.BranchInfo, error) {
 			return []model.BranchInfo{{
 				Name:          "feature/local-bff",
 				QualifiedName: "feature/local-bff",
 				Scope:         model.BranchScopeLocal,
 			}}, nil
 		},
-		currentBranchFn: func(repoPath string) (string, error) {
+		currentBranchFn: func(_ context.Context, repoPath string) (string, error) {
 			return "main", nil
 		},
-		detectDefaultBranchFn: func(repoPath, currentBranch string) (string, error) {
+		detectDefaultBranchFn: func(_ context.Context, repoPath, currentBranch string) (string, error) {
 			return "main", nil
 		},
 	}
@@ -256,7 +257,7 @@ func TestLoadRepoBranchesOpensourceKeepsLocalDataAndReturnsSyncWarning(t *testin
 	cleaner := NewCleaner(git)
 	repo := config.RepoConfig{Name: "bff", URL: "ssh://git.example/repo.git", Path: "/tmp/bff"}
 
-	rb, err := cleaner.LoadRepoBranches(repo)
+	rb, err := cleaner.LoadRepoBranches(context.Background(), repo)
 	if err != nil {
 		t.Fatalf("expected local fallback with warning, got error: %v", err)
 	}
@@ -281,10 +282,10 @@ func TestLoadRepoBranchesOpensourceReturnsErrorWhenUpdateFailsAndNoLocalRepo(t *
 	t.Parallel()
 
 	git := &fakeGitClient{
-		updateOpensourceFn: func(url, targetPath, branch string) error {
+		updateOpensourceFn: func(_ context.Context, url, targetPath, branch string) error {
 			return errors.New("connection refused")
 		},
-		resolveRepoPathFn: func(repoName, repoURL, localPath string) (string, error) {
+		resolveRepoPathFn: func(_ context.Context, repoName, repoURL, localPath string) (string, error) {
 			return "", errors.New("local path is not a git repository")
 		},
 	}
@@ -292,7 +293,7 @@ func TestLoadRepoBranchesOpensourceReturnsErrorWhenUpdateFailsAndNoLocalRepo(t *
 	cleaner := NewCleaner(git)
 	repo := config.RepoConfig{Name: "bff", URL: "ssh://git.example/repo.git", Path: "/tmp/missing"}
 
-	_, err := cleaner.LoadRepoBranches(repo)
+	_, err := cleaner.LoadRepoBranches(context.Background(), repo)
 	if err == nil {
 		t.Fatal("expected hard error when opensource update fails and fallback repo is unavailable")
 	}
@@ -305,19 +306,19 @@ func TestLoadRepoStatURLFallsBackToManagedCacheOnSyncFailure(t *testing.T) {
 	t.Parallel()
 
 	git := &fakeGitClient{
-		ensureManagedCloneFn: func(repoName, repoURL string) (string, error) {
+		ensureManagedCloneFn: func(_ context.Context, repoName, repoURL string) (string, error) {
 			return "", errors.New("no route to host")
 		},
 		managedRepoPathFn: func(repoName, repoURL string) string {
 			return "/tmp/state/workspace/repo"
 		},
-		resolveRepoPathFn: func(repoName, repoURL, localPath string) (string, error) {
+		resolveRepoPathFn: func(_ context.Context, repoName, repoURL, localPath string) (string, error) {
 			if localPath == "" {
 				t.Fatal("expected fallback local path")
 			}
 			return localPath, nil
 		},
-		getRepoStatFn: func(repoPath string) (model.RepoStat, error) {
+		getRepoStatFn: func(_ context.Context, repoPath string) (model.RepoStat, error) {
 			return model.RepoStat{CurrentBranch: "main", Loaded: true}, nil
 		},
 	}
@@ -325,7 +326,7 @@ func TestLoadRepoStatURLFallsBackToManagedCacheOnSyncFailure(t *testing.T) {
 	cleaner := NewCleaner(git)
 	repo := config.RepoConfig{Name: "simplewine", URL: "ssh://git.example/simplewine.git"}
 
-	stat, err := cleaner.LoadRepoStat(repo)
+	stat, err := cleaner.LoadRepoStat(context.Background(), repo)
 	if err != nil {
 		t.Fatalf("expected local managed fallback, got error: %v", err)
 	}
@@ -341,13 +342,13 @@ func TestLoadRepoStatURLReturnsHardErrorWhenNoLocalCache(t *testing.T) {
 	t.Parallel()
 
 	git := &fakeGitClient{
-		ensureManagedCloneFn: func(repoName, repoURL string) (string, error) {
+		ensureManagedCloneFn: func(_ context.Context, repoName, repoURL string) (string, error) {
 			return "", errors.New("connection refused")
 		},
 		managedRepoPathFn: func(repoName, repoURL string) string {
 			return "/tmp/state/workspace/missing"
 		},
-		resolveRepoPathFn: func(repoName, repoURL, localPath string) (string, error) {
+		resolveRepoPathFn: func(_ context.Context, repoName, repoURL, localPath string) (string, error) {
 			return "", errors.New("local path is not a git repository")
 		},
 	}
@@ -355,7 +356,7 @@ func TestLoadRepoStatURLReturnsHardErrorWhenNoLocalCache(t *testing.T) {
 	cleaner := NewCleaner(git)
 	repo := config.RepoConfig{Name: "simplewine", URL: "ssh://git.example/simplewine.git"}
 
-	_, err := cleaner.LoadRepoStat(repo)
+	_, err := cleaner.LoadRepoStat(context.Background(), repo)
 	if err == nil {
 		t.Fatal("expected hard error when both sync and local cache are unavailable")
 	}
@@ -364,12 +365,53 @@ func TestLoadRepoStatURLReturnsHardErrorWhenNoLocalCache(t *testing.T) {
 	}
 }
 
+func TestResolveRepoForReadURLFallbackIgnoresParentCancelForLocalCacheCheck(t *testing.T) {
+	t.Parallel()
+
+	resolveCalled := false
+	git := &fakeGitClient{
+		ensureManagedCloneFn: func(_ context.Context, repoName, repoURL string) (string, error) {
+			return "", errors.New("operation timed out")
+		},
+		managedRepoPathFn: func(repoName, repoURL string) string {
+			return "/tmp/state/workspace/repo"
+		},
+		resolveRepoPathFn: func(ctx context.Context, repoName, repoURL, localPath string) (string, error) {
+			resolveCalled = true
+			if ctx.Err() != nil {
+				t.Fatalf("expected fallback cache check without canceled context, got: %v", ctx.Err())
+			}
+			return localPath, nil
+		},
+	}
+
+	cleaner := NewCleaner(git)
+	repo := config.RepoConfig{Name: "demo", URL: "ssh://git.example/demo.git"}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	repoPath, syncWarning, err := cleaner.resolveRepoForRead(ctx, repo)
+	if err != nil {
+		t.Fatalf("expected fallback to local cache, got error: %v", err)
+	}
+	if !resolveCalled {
+		t.Fatal("expected local cache path resolution to be called")
+	}
+	if repoPath != "/tmp/state/workspace/repo" {
+		t.Fatalf("unexpected fallback path: %q", repoPath)
+	}
+	if syncWarning == "" {
+		t.Fatal("expected sync warning when remote sync fails")
+	}
+}
+
 func TestFetchAndPullRepoPathSourceUsesLocalPath(t *testing.T) {
 	t.Parallel()
 
 	called := false
 	git := &fakeGitClient{
-		resolveRepoPathFn: func(repoName, repoURL, localPath string) (string, error) {
+		resolveRepoPathFn: func(_ context.Context, repoName, repoURL, localPath string) (string, error) {
 			if repoName != "demo" {
 				t.Fatalf("unexpected repo name: %q", repoName)
 			}
@@ -381,7 +423,7 @@ func TestFetchAndPullRepoPathSourceUsesLocalPath(t *testing.T) {
 			}
 			return localPath, nil
 		},
-		fetchAndPullFn: func(repoPath, repoURL string) error {
+		fetchAndPullFn: func(_ context.Context, repoPath, repoURL string) error {
 			called = true
 			if repoPath != "/tmp/demo" {
 				t.Fatalf("unexpected repo path: %q", repoPath)
@@ -394,7 +436,7 @@ func TestFetchAndPullRepoPathSourceUsesLocalPath(t *testing.T) {
 	}
 
 	cleaner := NewCleaner(git)
-	err := cleaner.FetchAndPullRepo(config.RepoConfig{Name: "demo", Path: "/tmp/demo"})
+	err := cleaner.FetchAndPullRepo(context.Background(), config.RepoConfig{Name: "demo", Path: "/tmp/demo"})
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
@@ -408,7 +450,7 @@ func TestFetchAndPullRepoURLSourceUsesManagedClone(t *testing.T) {
 
 	called := false
 	git := &fakeGitClient{
-		ensureManagedCloneFn: func(repoName, repoURL string) (string, error) {
+		ensureManagedCloneFn: func(_ context.Context, repoName, repoURL string) (string, error) {
 			if repoName != "demo" {
 				t.Fatalf("unexpected repo name: %q", repoName)
 			}
@@ -417,7 +459,7 @@ func TestFetchAndPullRepoURLSourceUsesManagedClone(t *testing.T) {
 			}
 			return "/tmp/state/workspace/demo", nil
 		},
-		fetchAndPullFn: func(repoPath, repoURL string) error {
+		fetchAndPullFn: func(_ context.Context, repoPath, repoURL string) error {
 			called = true
 			if repoPath != "/tmp/state/workspace/demo" {
 				t.Fatalf("unexpected repo path: %q", repoPath)
@@ -430,7 +472,7 @@ func TestFetchAndPullRepoURLSourceUsesManagedClone(t *testing.T) {
 	}
 
 	cleaner := NewCleaner(git)
-	err := cleaner.FetchAndPullRepo(config.RepoConfig{Name: "demo", URL: "ssh://git.example/demo.git"})
+	err := cleaner.FetchAndPullRepo(context.Background(), config.RepoConfig{Name: "demo", URL: "ssh://git.example/demo.git"})
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
@@ -444,13 +486,13 @@ func TestCreateLocalTrackingBranchResolvesRepoAndCallsGit(t *testing.T) {
 
 	called := false
 	git := &fakeGitClient{
-		resolveRepoPathFn: func(repoName, repoURL, localPath string) (string, error) {
+		resolveRepoPathFn: func(_ context.Context, repoName, repoURL, localPath string) (string, error) {
 			if repoName != "demo" {
 				t.Fatalf("unexpected repo name: %q", repoName)
 			}
 			return "/tmp/demo", nil
 		},
-		createTrackingFn: func(repoPath, localBranch, remoteBranch string) error {
+		createTrackingFn: func(_ context.Context, repoPath, localBranch, remoteBranch string) error {
 			called = true
 			if repoPath != "/tmp/demo" {
 				t.Fatalf("unexpected repoPath: %q", repoPath)
@@ -466,7 +508,7 @@ func TestCreateLocalTrackingBranchResolvesRepoAndCallsGit(t *testing.T) {
 	}
 
 	cleaner := NewCleaner(git)
-	err := cleaner.CreateLocalTrackingBranch(config.RepoConfig{Name: "demo", Path: "/tmp/demo"}, "feature/new", "origin/feature/new")
+	err := cleaner.CreateLocalTrackingBranch(context.Background(), config.RepoConfig{Name: "demo", Path: "/tmp/demo"}, "feature/new", "origin/feature/new")
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
@@ -479,26 +521,26 @@ func TestLoadRepoBranchesProtectsRemoteBranchWithUnknownRemoteName(t *testing.T)
 	t.Parallel()
 
 	git := &fakeGitClient{
-		resolveRepoPathFn: func(repoName, repoURL, localPath string) (string, error) {
+		resolveRepoPathFn: func(_ context.Context, repoName, repoURL, localPath string) (string, error) {
 			return "/tmp/demo", nil
 		},
-		listBranchesFn: func(repoPath string) ([]model.BranchInfo, error) {
+		listBranchesFn: func(_ context.Context, repoPath string) ([]model.BranchInfo, error) {
 			return []model.BranchInfo{{
 				Name:          "feature/remote",
 				Scope:         model.BranchScopeRemote,
 				QualifiedName: "feature/remote",
 			}}, nil
 		},
-		currentBranchFn: func(repoPath string) (string, error) {
+		currentBranchFn: func(_ context.Context, repoPath string) (string, error) {
 			return "main", nil
 		},
-		detectDefaultBranchFn: func(repoPath, currentBranch string) (string, error) {
+		detectDefaultBranchFn: func(_ context.Context, repoPath, currentBranch string) (string, error) {
 			return "main", nil
 		},
 	}
 
 	cleaner := NewCleaner(git)
-	rb, err := cleaner.LoadRepoBranches(config.RepoConfig{Name: "demo", Path: "/tmp/demo"})
+	rb, err := cleaner.LoadRepoBranches(context.Background(), config.RepoConfig{Name: "demo", Path: "/tmp/demo"})
 	if err != nil {
 		t.Fatalf("load repo branches: %v", err)
 	}
@@ -517,20 +559,20 @@ func TestLoadRepoBranchesSetsJiraLinkFieldsFromNamedGroup(t *testing.T) {
 	t.Parallel()
 
 	git := &fakeGitClient{
-		resolveRepoPathFn: func(repoName, repoURL, localPath string) (string, error) {
+		resolveRepoPathFn: func(_ context.Context, repoName, repoURL, localPath string) (string, error) {
 			return "/tmp/demo", nil
 		},
-		listBranchesFn: func(repoPath string) ([]model.BranchInfo, error) {
+		listBranchesFn: func(_ context.Context, repoPath string) ([]model.BranchInfo, error) {
 			return []model.BranchInfo{{
 				Name:          "feature/OPS-101",
 				QualifiedName: "feature/OPS-101",
 				Scope:         model.BranchScopeLocal,
 			}}, nil
 		},
-		currentBranchFn: func(repoPath string) (string, error) {
+		currentBranchFn: func(_ context.Context, repoPath string) (string, error) {
 			return "main", nil
 		},
-		detectDefaultBranchFn: func(repoPath, currentBranch string) (string, error) {
+		detectDefaultBranchFn: func(_ context.Context, repoPath, currentBranch string) (string, error) {
 			return "main", nil
 		},
 	}
@@ -555,7 +597,7 @@ func TestLoadRepoBranchesSetsJiraLinkFieldsFromNamedGroup(t *testing.T) {
 	}
 
 	cleaner := NewCleaner(git)
-	rb, err := cleaner.LoadRepoBranches(cfg.Repos[0])
+	rb, err := cleaner.LoadRepoBranches(context.Background(), cfg.Repos[0])
 	if err != nil {
 		t.Fatalf("load repo branches: %v", err)
 	}
@@ -582,20 +624,20 @@ func TestLoadRepoBranchesResolvesJiraStatusForMappedTicket(t *testing.T) {
 	t.Parallel()
 
 	git := &fakeGitClient{
-		resolveRepoPathFn: func(repoName, repoURL, localPath string) (string, error) {
+		resolveRepoPathFn: func(_ context.Context, repoName, repoURL, localPath string) (string, error) {
 			return "/tmp/demo", nil
 		},
-		listBranchesFn: func(repoPath string) ([]model.BranchInfo, error) {
+		listBranchesFn: func(_ context.Context, repoPath string) ([]model.BranchInfo, error) {
 			return []model.BranchInfo{{
 				Name:          "feature/OPS-500",
 				QualifiedName: "feature/OPS-500",
 				Scope:         model.BranchScopeLocal,
 			}}, nil
 		},
-		currentBranchFn: func(repoPath string) (string, error) {
+		currentBranchFn: func(_ context.Context, repoPath string) (string, error) {
 			return "main", nil
 		},
-		detectDefaultBranchFn: func(repoPath, currentBranch string) (string, error) {
+		detectDefaultBranchFn: func(_ context.Context, repoPath, currentBranch string) (string, error) {
 			return "main", nil
 		},
 	}
@@ -635,7 +677,7 @@ func TestLoadRepoBranchesResolvesJiraStatusForMappedTicket(t *testing.T) {
 		return jira.StatusResult{Status: "In Progress", State: jira.StatusStateReady, Reason: jira.StatusReasonNone}
 	}}))
 
-	rb, err := cleaner.LoadRepoBranches(cfg.Repos[0])
+	rb, err := cleaner.LoadRepoBranches(context.Background(), cfg.Repos[0])
 	if err != nil {
 		t.Fatalf("load repo branches: %v", err)
 	}
@@ -658,20 +700,20 @@ func TestLoadRepoBranchesMapsJiraAuthState(t *testing.T) {
 	t.Parallel()
 
 	git := &fakeGitClient{
-		resolveRepoPathFn: func(repoName, repoURL, localPath string) (string, error) {
+		resolveRepoPathFn: func(_ context.Context, repoName, repoURL, localPath string) (string, error) {
 			return "/tmp/demo", nil
 		},
-		listBranchesFn: func(repoPath string) ([]model.BranchInfo, error) {
+		listBranchesFn: func(_ context.Context, repoPath string) ([]model.BranchInfo, error) {
 			return []model.BranchInfo{{
 				Name:          "feature/OPS-777",
 				QualifiedName: "feature/OPS-777",
 				Scope:         model.BranchScopeLocal,
 			}}, nil
 		},
-		currentBranchFn: func(repoPath string) (string, error) {
+		currentBranchFn: func(_ context.Context, repoPath string) (string, error) {
 			return "main", nil
 		},
-		detectDefaultBranchFn: func(repoPath, currentBranch string) (string, error) {
+		detectDefaultBranchFn: func(_ context.Context, repoPath, currentBranch string) (string, error) {
 			return "main", nil
 		},
 	}
@@ -698,7 +740,7 @@ func TestLoadRepoBranchesMapsJiraAuthState(t *testing.T) {
 		return jira.StatusResult{Status: "-", State: jira.StatusStateAuth, Reason: jira.StatusReasonAuthRequired}
 	}}))
 
-	rb, err := cleaner.LoadRepoBranches(cfg.Repos[0])
+	rb, err := cleaner.LoadRepoBranches(context.Background(), cfg.Repos[0])
 	if err != nil {
 		t.Fatalf("load repo branches: %v", err)
 	}
@@ -714,20 +756,20 @@ func TestLoadRepoBranchesPrefetchesJiraStatusesBeforeResolve(t *testing.T) {
 	t.Parallel()
 
 	git := &fakeGitClient{
-		resolveRepoPathFn: func(repoName, repoURL, localPath string) (string, error) {
+		resolveRepoPathFn: func(_ context.Context, repoName, repoURL, localPath string) (string, error) {
 			return "/tmp/demo", nil
 		},
-		listBranchesFn: func(repoPath string) ([]model.BranchInfo, error) {
+		listBranchesFn: func(_ context.Context, repoPath string) ([]model.BranchInfo, error) {
 			return []model.BranchInfo{
 				{Name: "OPS-101", QualifiedName: "OPS-101", Scope: model.BranchScopeLocal},
 				{Name: "IDEA-7", QualifiedName: "IDEA-7", Scope: model.BranchScopeLocal},
 				{Name: "misc/no-jira", QualifiedName: "misc/no-jira", Scope: model.BranchScopeLocal},
 			}, nil
 		},
-		currentBranchFn: func(repoPath string) (string, error) {
+		currentBranchFn: func(_ context.Context, repoPath string) (string, error) {
 			return "main", nil
 		},
-		detectDefaultBranchFn: func(repoPath, currentBranch string) (string, error) {
+		detectDefaultBranchFn: func(_ context.Context, repoPath, currentBranch string) (string, error) {
 			return "main", nil
 		},
 	}
@@ -762,7 +804,7 @@ func TestLoadRepoBranchesPrefetchesJiraStatusesBeforeResolve(t *testing.T) {
 		},
 	}))
 
-	_, err = cleaner.LoadRepoBranches(cfg.Repos[0])
+	_, err = cleaner.LoadRepoBranches(context.Background(), cfg.Repos[0])
 	if err != nil {
 		t.Fatalf("load repo branches: %v", err)
 	}
@@ -779,20 +821,20 @@ func TestLoadRepoBranchesSetsNoGroupConfigReasonForNamedGroupWithoutTopLevelConf
 	t.Parallel()
 
 	git := &fakeGitClient{
-		resolveRepoPathFn: func(repoName, repoURL, localPath string) (string, error) {
+		resolveRepoPathFn: func(_ context.Context, repoName, repoURL, localPath string) (string, error) {
 			return "/tmp/demo", nil
 		},
-		listBranchesFn: func(repoPath string) ([]model.BranchInfo, error) {
+		listBranchesFn: func(_ context.Context, repoPath string) ([]model.BranchInfo, error) {
 			return []model.BranchInfo{{
 				Name:          "BFF-1004",
 				QualifiedName: "BFF-1004",
 				Scope:         model.BranchScopeLocal,
 			}}, nil
 		},
-		currentBranchFn: func(repoPath string) (string, error) {
+		currentBranchFn: func(_ context.Context, repoPath string) (string, error) {
 			return "main", nil
 		},
-		detectDefaultBranchFn: func(repoPath, currentBranch string) (string, error) {
+		detectDefaultBranchFn: func(_ context.Context, repoPath, currentBranch string) (string, error) {
 			return "main", nil
 		},
 	}
@@ -812,7 +854,7 @@ func TestLoadRepoBranchesSetsNoGroupConfigReasonForNamedGroupWithoutTopLevelConf
 	}
 
 	cleaner := NewCleaner(git)
-	rb, err := cleaner.LoadRepoBranches(cfg.Repos[0])
+	rb, err := cleaner.LoadRepoBranches(context.Background(), cfg.Repos[0])
 	if err != nil {
 		t.Fatalf("load repo branches: %v", err)
 	}
@@ -829,20 +871,20 @@ func TestLoadRepoBranchesSetsRegexKeyOnlyReasonForFallbackJIRA(t *testing.T) {
 	t.Parallel()
 
 	git := &fakeGitClient{
-		resolveRepoPathFn: func(repoName, repoURL, localPath string) (string, error) {
+		resolveRepoPathFn: func(_ context.Context, repoName, repoURL, localPath string) (string, error) {
 			return "/tmp/demo", nil
 		},
-		listBranchesFn: func(repoPath string) ([]model.BranchInfo, error) {
+		listBranchesFn: func(_ context.Context, repoPath string) ([]model.BranchInfo, error) {
 			return []model.BranchInfo{{
 				Name:          "feature/OPS-321",
 				QualifiedName: "feature/OPS-321",
 				Scope:         model.BranchScopeLocal,
 			}}, nil
 		},
-		currentBranchFn: func(repoPath string) (string, error) {
+		currentBranchFn: func(_ context.Context, repoPath string) (string, error) {
 			return "main", nil
 		},
-		detectDefaultBranchFn: func(repoPath, currentBranch string) (string, error) {
+		detectDefaultBranchFn: func(_ context.Context, repoPath, currentBranch string) (string, error) {
 			return "main", nil
 		},
 	}
@@ -862,7 +904,7 @@ func TestLoadRepoBranchesSetsRegexKeyOnlyReasonForFallbackJIRA(t *testing.T) {
 	}
 
 	cleaner := NewCleaner(git)
-	rb, err := cleaner.LoadRepoBranches(cfg.Repos[0])
+	rb, err := cleaner.LoadRepoBranches(context.Background(), cfg.Repos[0])
 	if err != nil {
 		t.Fatalf("load repo branches: %v", err)
 	}
@@ -879,10 +921,10 @@ func TestLoadRepoBranchesProtectsRemoteBranchByKeepPattern(t *testing.T) {
 	t.Parallel()
 
 	git := &fakeGitClient{
-		resolveRepoPathFn: func(repoName, repoURL, localPath string) (string, error) {
+		resolveRepoPathFn: func(_ context.Context, repoName, repoURL, localPath string) (string, error) {
 			return "/tmp/demo", nil
 		},
-		listBranchesFn: func(repoPath string) ([]model.BranchInfo, error) {
+		listBranchesFn: func(_ context.Context, repoPath string) ([]model.BranchInfo, error) {
 			return []model.BranchInfo{{
 				Name:          "release/1.0",
 				Scope:         model.BranchScopeRemote,
@@ -890,10 +932,10 @@ func TestLoadRepoBranchesProtectsRemoteBranchByKeepPattern(t *testing.T) {
 				QualifiedName: "origin/release/1.0",
 			}}, nil
 		},
-		currentBranchFn: func(repoPath string) (string, error) {
+		currentBranchFn: func(_ context.Context, repoPath string) (string, error) {
 			return "main", nil
 		},
-		detectDefaultBranchFn: func(repoPath, currentBranch string) (string, error) {
+		detectDefaultBranchFn: func(_ context.Context, repoPath, currentBranch string) (string, error) {
 			return "main", nil
 		},
 	}
@@ -913,7 +955,7 @@ func TestLoadRepoBranchesProtectsRemoteBranchByKeepPattern(t *testing.T) {
 	}
 
 	cleaner := NewCleaner(git)
-	rb, err := cleaner.LoadRepoBranches(cfg.Repos[0])
+	rb, err := cleaner.LoadRepoBranches(context.Background(), cfg.Repos[0])
 	if err != nil {
 		t.Fatalf("load repo branches: %v", err)
 	}
@@ -932,10 +974,10 @@ func TestLoadRepoBranchesRemoteWithFullRefIsSelectable(t *testing.T) {
 	t.Parallel()
 
 	git := &fakeGitClient{
-		resolveRepoPathFn: func(repoName, repoURL, localPath string) (string, error) {
+		resolveRepoPathFn: func(_ context.Context, repoName, repoURL, localPath string) (string, error) {
 			return "/tmp/demo", nil
 		},
-		listBranchesFn: func(repoPath string) ([]model.BranchInfo, error) {
+		listBranchesFn: func(_ context.Context, repoPath string) ([]model.BranchInfo, error) {
 			return []model.BranchInfo{{
 				Name:          "feature/remote-ok",
 				Scope:         model.BranchScopeRemote,
@@ -943,16 +985,16 @@ func TestLoadRepoBranchesRemoteWithFullRefIsSelectable(t *testing.T) {
 				QualifiedName: "refs/remotes/origin/feature/remote-ok",
 			}}, nil
 		},
-		currentBranchFn: func(repoPath string) (string, error) {
+		currentBranchFn: func(_ context.Context, repoPath string) (string, error) {
 			return "main", nil
 		},
-		detectDefaultBranchFn: func(repoPath, currentBranch string) (string, error) {
+		detectDefaultBranchFn: func(_ context.Context, repoPath, currentBranch string) (string, error) {
 			return "main", nil
 		},
 	}
 
 	cleaner := NewCleaner(git)
-	rb, err := cleaner.LoadRepoBranches(config.RepoConfig{Name: "demo", Path: "/tmp/demo"})
+	rb, err := cleaner.LoadRepoBranches(context.Background(), config.RepoConfig{Name: "demo", Path: "/tmp/demo"})
 	if err != nil {
 		t.Fatalf("load repo branches: %v", err)
 	}
@@ -968,10 +1010,10 @@ func TestLoadRepoBranchesProtectsAndSkipsRemoteDefaultBranch(t *testing.T) {
 	t.Parallel()
 
 	git := &fakeGitClient{
-		resolveRepoPathFn: func(repoName, repoURL, localPath string) (string, error) {
+		resolveRepoPathFn: func(_ context.Context, repoName, repoURL, localPath string) (string, error) {
 			return "/tmp/demo", nil
 		},
-		listBranchesFn: func(repoPath string) ([]model.BranchInfo, error) {
+		listBranchesFn: func(_ context.Context, repoPath string) ([]model.BranchInfo, error) {
 			return []model.BranchInfo{{
 				Name:          "main",
 				Scope:         model.BranchScopeRemote,
@@ -979,10 +1021,10 @@ func TestLoadRepoBranchesProtectsAndSkipsRemoteDefaultBranch(t *testing.T) {
 				QualifiedName: "origin/main",
 			}}, nil
 		},
-		currentBranchFn: func(repoPath string) (string, error) {
+		currentBranchFn: func(_ context.Context, repoPath string) (string, error) {
 			return "feature/local", nil
 		},
-		detectDefaultBranchFn: func(repoPath, currentBranch string) (string, error) {
+		detectDefaultBranchFn: func(_ context.Context, repoPath, currentBranch string) (string, error) {
 			return "main", nil
 		},
 	}
@@ -990,7 +1032,7 @@ func TestLoadRepoBranchesProtectsAndSkipsRemoteDefaultBranch(t *testing.T) {
 	cleaner := NewCleaner(git)
 	repo := config.RepoConfig{Name: "demo", Path: "/tmp/demo"}
 
-	rb, err := cleaner.LoadRepoBranches(repo)
+	rb, err := cleaner.LoadRepoBranches(context.Background(), repo)
 	if err != nil {
 		t.Fatalf("load repo branches: %v", err)
 	}

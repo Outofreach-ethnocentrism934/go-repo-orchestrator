@@ -1614,6 +1614,56 @@ func TestEndNavigationKeyAliases(t *testing.T) {
 	}
 }
 
+func TestBeginActionCancelsPreviousActionWithSameKey(t *testing.T) {
+	t.Parallel()
+
+	m := NewModel(&config.Config{Repos: []config.RepoConfig{{Name: "repo-a", Path: "/tmp/repo-a"}}}, nil, false)
+	ctx1, _ := m.beginAction(actionKeyLoadRepo("repo-a"))
+	ctx2, _ := m.beginAction(actionKeyLoadRepo("repo-a"))
+
+	select {
+	case <-ctx1.Done():
+		// expected
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("expected previous action context to be canceled")
+	}
+
+	select {
+	case <-ctx2.Done():
+		t.Fatal("expected current action context to stay active")
+	default:
+	}
+}
+
+func TestQuitCancelsInflightActions(t *testing.T) {
+	t.Parallel()
+
+	m := NewModel(&config.Config{Repos: []config.RepoConfig{{Name: "repo-a", Path: "/tmp/repo-a"}}}, nil, false)
+	ctxLoad, _ := m.beginAction(actionKeyLoadRepo("repo-a"))
+	ctxStat, _ := m.beginAction(actionKeyRepoStat("repo-a"))
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	next := updated.(Model)
+
+	select {
+	case <-ctxLoad.Done():
+		// expected
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("expected load action context to be canceled on quit")
+	}
+
+	select {
+	case <-ctxStat.Done():
+		// expected
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("expected stat action context to be canceled on quit")
+	}
+
+	if len(next.actionCancels) != 0 {
+		t.Fatalf("expected no active action cancels after quit, got %d", len(next.actionCancels))
+	}
+}
+
 func TestRepoNavigationPageKeys(t *testing.T) {
 	repos := make([]config.RepoConfig, 12)
 	for i := range repos {

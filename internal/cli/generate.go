@@ -47,7 +47,7 @@ func newGenerateCommand(v *viper.Viper, logger *zap.Logger) *cobra.Command {
 				return fmt.Errorf("получить текущую директорию: %w", err)
 			}
 
-			cfg, err := config.ScanDirectory(cwd)
+			cfg, err := config.ScanDirectory(cmd.Context(), cwd)
 			if err != nil {
 				return fmt.Errorf("просканировать директорию: %w", err)
 			}

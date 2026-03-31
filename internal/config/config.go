@@ -2,6 +2,7 @@ package config
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -497,10 +498,18 @@ func jiraTicketURL(baseURL, ticket string) string {
 
 // ScanDirectory рекурсивно обходит переданную директорию в поисках папок .git
 // и формирует конфигурацию 'на лету', эмулируя список репозиториев.
-func ScanDirectory(dir string) (*Config, error) {
+func ScanDirectory(ctx context.Context, dir string) (*Config, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	var repos []RepoConfig
 
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if errCtx := ctx.Err(); errCtx != nil {
+			return errCtx
+		}
+
 		if err != nil {
 			return nil // пропускаем ошибки доступа
 		}
@@ -530,7 +539,7 @@ func ScanDirectory(dir string) (*Config, error) {
 					Name: repoName,
 					Path: repoDir,
 				}
-				if originURL, ok := readOriginURL(repoDir); ok {
+				if originURL, ok := readOriginURL(ctx, repoDir); ok {
 					repo.URL = originURL
 				}
 				repos = append(repos, repo)
@@ -553,8 +562,12 @@ func ScanDirectory(dir string) (*Config, error) {
 	return &Config{Repos: repos}, nil
 }
 
-func readOriginURL(repoDir string) (string, bool) {
-	cmd := exec.Command("git", "-C", repoDir, "remote", "get-url", "origin")
+func readOriginURL(ctx context.Context, repoDir string) (string, bool) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	cmd := exec.CommandContext(ctx, "git", "-C", repoDir, "remote", "get-url", "origin")
 
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout

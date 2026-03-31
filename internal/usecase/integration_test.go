@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -65,7 +66,7 @@ func TestGenerateScriptFlowWithManagedClone(t *testing.T) {
 	g := git.NewClient(10*time.Second, workspaceDir)
 	uc := NewCleaner(g)
 
-	rb, err := uc.LoadRepoBranches(repoCfg)
+	rb, err := uc.LoadRepoBranches(context.Background(), repoCfg)
 	if err != nil {
 		t.Fatalf("load branches first time: %v", err)
 	}
@@ -148,7 +149,7 @@ func TestLoadRepoBranchesWithLocalPathSource(t *testing.T) {
 	g := git.NewClient(10*time.Second, filepath.Join(stateDir, "workspace"))
 	uc := NewCleaner(g)
 
-	rb, err := uc.LoadRepoBranches(repoCfg)
+	rb, err := uc.LoadRepoBranches(context.Background(), repoCfg)
 	if err != nil {
 		t.Fatalf("load local path branches: %v", err)
 	}

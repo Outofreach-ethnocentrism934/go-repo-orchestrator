@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -67,6 +68,8 @@ const (
 
 type branchesLoadedMsg struct {
 	requestID    int
+	actionKey    string
+	actionID     int
 	repoName     string
 	rb           model.RepoBranches
 	err          error
@@ -88,10 +91,12 @@ type scriptGeneratedMsg struct {
 type initialLoadMsg struct{}
 
 type repoStatLoadedMsg struct {
-	repoName string
-	stat     model.RepoStat
-	err      error
-	startup  bool
+	actionKey string
+	actionID  int
+	repoName  string
+	stat      model.RepoStat
+	err       error
+	startup   bool
 }
 
 type opensourceUpdatedMsg struct {
@@ -100,19 +105,30 @@ type opensourceUpdatedMsg struct {
 }
 
 type checkoutCompletedMsg struct {
-	repoName string
-	err      error
+	actionKey string
+	actionID  int
+	repoName  string
+	err       error
 }
 
 type localCopyCompletedMsg struct {
-	repoName string
-	branch   string
-	err      error
+	actionKey string
+	actionID  int
+	repoName  string
+	branch    string
+	err       error
 }
 
 type repoFetchPullCompletedMsg struct {
-	repoName string
-	err      error
+	actionKey string
+	actionID  int
+	repoName  string
+	err       error
+}
+
+type actionCancelRef struct {
+	id     int
+	cancel context.CancelFunc
 }
 
 // Model хранит состояние TUI в двухпанельном режиме.
@@ -171,6 +187,11 @@ type Model struct {
 
 	width  int
 	height int
+
+	appCtx        context.Context
+	appCancel     context.CancelFunc
+	actionSeq     int
+	actionCancels map[string]actionCancelRef
 }
 
 // NewModel создает корневую модель интерфейса.
@@ -183,6 +204,8 @@ func NewModel(cfg *config.Config, cleaner *usecase.Cleaner, _ bool) Model {
 	ti.Placeholder = "Поиск..."
 	ti.Prompt = "F3> "
 	ti.CharLimit = 100
+
+	appCtx, appCancel := context.WithCancel(context.Background())
 
 	return Model{
 		cfg:                    cfg,
@@ -207,6 +230,9 @@ func NewModel(cfg *config.Config, cleaner *usecase.Cleaner, _ bool) Model {
 		height:                 36,
 		eventLog:               make([]string, 0, 50),
 		startupPlaywrightState: startupPlaywrightSkipped,
+		appCtx:                 appCtx,
+		appCancel:              appCancel,
+		actionCancels:          make(map[string]actionCancelRef),
 	}
 }
 
@@ -297,6 +323,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case branchesLoadedMsg:
+		m.finishAction(msg.actionKey, msg.actionID)
 		if expectedReqID := m.repoLoadReq[msg.repoName]; expectedReqID != msg.requestID {
 			return m, nil
 		}
@@ -387,6 +414,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case repoStatLoadedMsg:
+		m.finishAction(msg.actionKey, msg.actionID)
 		m.finishRefreshPendingIfNeeded(msg.repoName)
 		m.finishStartupTaskIfNeeded(msg.startup)
 		stat := msg.stat
@@ -419,11 +447,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		repo, ok := m.cfg.RepoByName(msg.repoName)
 		if ok {
-			return m, loadRepoStatCmd(m.clean, repo, false)
+			actionKey := actionKeyRepoStat(repo.Name)
+			ctx, actionID := m.beginAction(actionKey)
+			return m, loadRepoStatCmd(ctx, m.clean, repo, false, actionKey, actionID)
 		}
 		return m, nil
 
 	case checkoutCompletedMsg:
+		m.finishAction(msg.actionKey, msg.actionID)
 		m.repoLoading[msg.repoName] = false
 		m.err = userFacingError(msg.err)
 		if msg.err != nil {
@@ -438,11 +469,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		repo, ok := m.cfg.RepoByName(msg.repoName)
 		if ok {
-			return m, loadRepoStatCmd(m.clean, repo, false)
+			actionKey := actionKeyRepoStat(repo.Name)
+			ctx, actionID := m.beginAction(actionKey)
+			return m, loadRepoStatCmd(ctx, m.clean, repo, false, actionKey, actionID)
 		}
 		return m, nil
 
 	case localCopyCompletedMsg:
+		m.finishAction(msg.actionKey, msg.actionID)
 		m.repoLoading[msg.repoName] = false
 		m.err = userFacingError(msg.err)
 		if msg.err != nil {
@@ -457,11 +491,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		repo, ok := m.cfg.RepoByName(msg.repoName)
 		if ok {
-			return m, loadRepoStatCmd(m.clean, repo, false)
+			actionKey := actionKeyRepoStat(repo.Name)
+			ctx, actionID := m.beginAction(actionKey)
+			return m, loadRepoStatCmd(ctx, m.clean, repo, false, actionKey, actionID)
 		}
 		return m, nil
 
 	case repoFetchPullCompletedMsg:
+		m.finishAction(msg.actionKey, msg.actionID)
 		m.repoLoading[msg.repoName] = false
 		m.err = userFacingError(msg.err)
 		if msg.err != nil {
@@ -478,13 +515,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		repo, ok := m.cfg.RepoByName(msg.repoName)
 		if ok {
 			m.releaseRefreshLock(msg.repoName)
-			return m, loadRepoStatCmd(m.clean, repo, false)
+			actionKey := actionKeyRepoStat(repo.Name)
+			ctx, actionID := m.beginAction(actionKey)
+			return m, loadRepoStatCmd(ctx, m.clean, repo, false, actionKey, actionID)
 		}
 		m.releaseRefreshLock(msg.repoName)
 		return m, nil
 
 	case tea.KeyMsg:
 		if m.isQuitKey(msg) {
+			m.cancelAllOperations()
 			return m, tea.Quit
 		}
 
@@ -631,9 +671,11 @@ func (m Model) updateConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			repoName := repo.Name
 			m.repoLoading[repoName] = true
 			m.statusLine = fmt.Sprintf("Переключение на ветку %s...", m.checkoutTarget)
+			actionKey := actionKeyCheckout(repoName)
+			ctx, actionID := m.beginAction(actionKey)
 			return m, tea.Batch(m.spinner.Tick, func() tea.Msg {
-				err := m.clean.ForceCheckoutLocalBranch(repo, m.checkoutTarget)
-				return checkoutCompletedMsg{repoName: repo.Name, err: err}
+				err := m.clean.ForceCheckoutLocalBranch(ctx, repo, m.checkoutTarget)
+				return checkoutCompletedMsg{actionKey: actionKey, actionID: actionID, repoName: repo.Name, err: err}
 			})
 		}
 	}
@@ -1472,7 +1514,9 @@ func (m *Model) startPreloadPass(startup bool, keepSelection bool) tea.Cmd {
 				cmds = append(cmds, m.startLoadRepo(repo, false, startup))
 				m.startupPending++
 			} else {
-				cmds = append(cmds, loadRepoStatCmd(m.clean, repo, startup))
+				actionKey := actionKeyRepoStat(repo.Name)
+				ctx, actionID := m.beginAction(actionKey)
+				cmds = append(cmds, loadRepoStatCmd(ctx, m.clean, repo, startup, actionKey, actionID))
 				m.startupPending++
 			}
 		}
@@ -1501,6 +1545,8 @@ func (m *Model) startPreloadPass(startup bool, keepSelection bool) tea.Cmd {
 func (m *Model) startLoadRepo(repo config.RepoConfig, manual, startup bool) tea.Cmd {
 	m.repoLoadReq[repo.Name]++
 	requestID := m.repoLoadReq[repo.Name]
+	actionKey := actionKeyLoadRepo(repo.Name)
+	ctx, actionID := m.beginAction(actionKey)
 	m.repoLoading[repo.Name] = true
 	m.err = nil
 
@@ -1521,19 +1567,19 @@ func (m *Model) startLoadRepo(repo config.RepoConfig, manual, startup bool) tea.
 
 	if repo.Name == m.selectedRepoName() {
 		m.activeRepo = model.RepoBranches{RepoName: repo.Name, RepoSource: repo.SourceType()}
-		return tea.Batch(m.spinner.Tick, loadRepoBranchesCmd(m.clean, repo, requestID, startup))
+		return tea.Batch(m.spinner.Tick, loadRepoBranchesCmd(ctx, m.clean, repo, requestID, startup, actionKey, actionID))
 	}
 
-	return loadRepoBranchesCmd(m.clean, repo, requestID, startup)
+	return loadRepoBranchesCmd(ctx, m.clean, repo, requestID, startup, actionKey, actionID)
 }
 
 // loadRepoBranchesCmd запускает загрузку веток репозитория и отправляет поэтапные события в лог.
-func loadRepoBranchesCmd(cleaner *usecase.Cleaner, repo config.RepoConfig, requestID int, startup bool) tea.Cmd {
+func loadRepoBranchesCmd(ctx context.Context, cleaner *usecase.Cleaner, repo config.RepoConfig, requestID int, startup bool, actionKey string, actionID int) tea.Cmd {
 	if !startup {
 		// В режиме не startup — простой вызов без поэтапных событий
 		return func() tea.Msg {
-			rb, err := cleaner.LoadRepoBranches(repo)
-			return branchesLoadedMsg{requestID: requestID, repoName: repo.Name, rb: rb, err: err, startup: false}
+			rb, err := cleaner.LoadRepoBranches(ctx, repo)
+			return branchesLoadedMsg{requestID: requestID, actionKey: actionKey, actionID: actionID, repoName: repo.Name, rb: rb, err: err, startup: false}
 		}
 	}
 
@@ -1542,9 +1588,9 @@ func loadRepoBranchesCmd(cleaner *usecase.Cleaner, repo config.RepoConfig, reque
 		return startupLogMsg{fmt.Sprintf("[GIT] %s: получение веток...", repo.Name)}
 	}
 	loadAndReport := func() tea.Msg {
-		rb, err := cleaner.LoadRepoBranches(repo)
+		rb, err := cleaner.LoadRepoBranches(ctx, repo)
 		if err != nil {
-			return branchesLoadedMsg{requestID: requestID, repoName: repo.Name, rb: rb, err: err, startup: true}
+			return branchesLoadedMsg{requestID: requestID, actionKey: actionKey, actionID: actionID, repoName: repo.Name, rb: rb, err: err, startup: true}
 		}
 		jiraResolved := 0
 		for _, b := range rb.Branches {
@@ -1558,6 +1604,8 @@ func loadRepoBranchesCmd(cleaner *usecase.Cleaner, repo config.RepoConfig, reque
 		}
 		return branchesLoadedMsg{
 			requestID:    requestID,
+			actionKey:    actionKey,
+			actionID:     actionID,
 			repoName:     repo.Name,
 			rb:           rb,
 			err:          nil,
@@ -1569,10 +1617,10 @@ func loadRepoBranchesCmd(cleaner *usecase.Cleaner, repo config.RepoConfig, reque
 	return tea.Batch(stageGit, loadAndReport)
 }
 
-func loadRepoStatCmd(cleaner *usecase.Cleaner, repo config.RepoConfig, startup bool) tea.Cmd {
+func loadRepoStatCmd(ctx context.Context, cleaner *usecase.Cleaner, repo config.RepoConfig, startup bool, actionKey string, actionID int) tea.Cmd {
 	return func() tea.Msg {
-		stat, err := cleaner.LoadRepoStat(repo)
-		return repoStatLoadedMsg{repoName: repo.Name, stat: stat, err: err, startup: startup}
+		stat, err := cleaner.LoadRepoStat(ctx, repo)
+		return repoStatLoadedMsg{actionKey: actionKey, actionID: actionID, repoName: repo.Name, stat: stat, err: err, startup: startup}
 	}
 }
 
@@ -2790,10 +2838,12 @@ func (m *Model) startCreateLocalCopyFromCurrentRemoteBranch() tea.Cmd {
 
 	m.repoLoading[repo.Name] = true
 	m.statusLine = fmt.Sprintf("Создание локальной копии %s...", branch.Name)
+	actionKey := actionKeyLocalCopy(repo.Name)
+	ctx, actionID := m.beginAction(actionKey)
 
 	return tea.Batch(m.spinner.Tick, func() tea.Msg {
-		err := m.clean.CreateLocalTrackingBranch(repo, branch.Name, branch.QualifiedName)
-		return localCopyCompletedMsg{repoName: repo.Name, branch: branch.Name, err: err}
+		err := m.clean.CreateLocalTrackingBranch(ctx, repo, branch.Name, branch.QualifiedName)
+		return localCopyCompletedMsg{actionKey: actionKey, actionID: actionID, repoName: repo.Name, branch: branch.Name, err: err}
 	})
 }
 
@@ -2814,10 +2864,12 @@ func (m *Model) startFetchAndPullActiveRepo() tea.Cmd {
 	}
 	m.refreshRepo = repo.Name
 	m.refreshReqID = 0
+	actionKey := actionKeyFetchPull(repo.Name)
+	ctx, actionID := m.beginAction(actionKey)
 
 	return tea.Batch(m.spinner.Tick, func() tea.Msg {
-		err := m.clean.FetchAndPullRepo(repo)
-		return repoFetchPullCompletedMsg{repoName: repo.Name, err: err}
+		err := m.clean.FetchAndPullRepo(ctx, repo)
+		return repoFetchPullCompletedMsg{actionKey: actionKey, actionID: actionID, repoName: repo.Name, err: err}
 	})
 }
 
@@ -2963,6 +3015,84 @@ func (m *Model) resetRefreshLock() {
 	for repoName := range m.refreshPending {
 		delete(m.refreshPending, repoName)
 	}
+}
+
+func (m *Model) ensureAppContext() {
+	if m.appCtx != nil {
+		return
+	}
+
+	m.appCtx, m.appCancel = context.WithCancel(context.Background())
+}
+
+func (m *Model) beginAction(actionKey string) (context.Context, int) {
+	m.ensureAppContext()
+	if actionKey == "" {
+		m.actionSeq++
+		return m.appCtx, m.actionSeq
+	}
+
+	if ref, ok := m.actionCancels[actionKey]; ok && ref.cancel != nil {
+		ref.cancel()
+		delete(m.actionCancels, actionKey)
+	}
+
+	m.actionSeq++
+	actionID := m.actionSeq
+	ctx, cancel := context.WithCancel(m.appCtx)
+	m.actionCancels[actionKey] = actionCancelRef{id: actionID, cancel: cancel}
+	return ctx, actionID
+}
+
+func (m *Model) finishAction(actionKey string, actionID int) {
+	if actionKey == "" {
+		return
+	}
+
+	ref, ok := m.actionCancels[actionKey]
+	if !ok || ref.id != actionID {
+		return
+	}
+
+	if ref.cancel != nil {
+		ref.cancel()
+	}
+	delete(m.actionCancels, actionKey)
+}
+
+func (m *Model) cancelAllOperations() {
+	for key, ref := range m.actionCancels {
+		if ref.cancel != nil {
+			ref.cancel()
+		}
+		delete(m.actionCancels, key)
+	}
+
+	if m.appCancel != nil {
+		m.appCancel()
+	}
+	m.appCtx = nil
+	m.appCancel = nil
+}
+
+func actionKeyLoadRepo(repoName string) string {
+	return "repo.load." + strings.TrimSpace(repoName)
+}
+
+func actionKeyRepoStat(repoName string) string {
+	return "repo.stat." + strings.TrimSpace(repoName)
+}
+
+func actionKeyCheckout(repoName string) string {
+	return "repo.checkout." + strings.TrimSpace(repoName)
+}
+
+func actionKeyLocalCopy(repoName string) string {
+	return "repo.localcopy." + strings.TrimSpace(repoName)
+}
+
+func actionKeyFetchPull(repoName string) string {
+	return "repo.fetchpull." + strings.TrimSpace(repoName)
 }
 
 func (m Model) viewStartupScreen() string {
