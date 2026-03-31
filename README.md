@@ -18,7 +18,7 @@
 
 <div align="center">
   <br>
-  <video src="https://github.com/AgelxNash/go-repo-orchestrator/raw/main/.github/assets/demo.webm?raw=true" width="100%" controls></video>
+  <img src=".github/assets/demo.gif" alt="Демонстрация работы приложения" width="100%">
   <br>
   <i>Демонстрация работы приложения</i>
 </div>
