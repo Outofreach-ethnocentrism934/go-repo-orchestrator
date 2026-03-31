@@ -1,218 +1,251 @@
-# go-repo-orchestrator
+<div align="center">
+  <h1>🚀 go-repo-orchestrator</h1>
+  <p><b>Локальная TUI-утилита для оркестрации репозиториев, аудита задач и безопасной работы с Git-ветками</b></p>
+  
+  [![Go version](https://img.shields.io/github/go-mod/go-version/AgelxNash/go-repo-orchestrator)](https://github.com/AgelxNash/go-repo-orchestrator/blob/main/go.mod)
+  [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-fe5196.svg)](https://www.conventionalcommits.org/en/v1.0.0/)
+  ![Go Report Card](https://goreportcard.com/badge/github.com/AgelxNash/go-repo-orchestrator)
+  [![CI](https://github.com/AgelxNash/go-repo-orchestrator/actions/workflows/ci.yml/badge.svg)](https://github.com/AgelxNash/go-repo-orchestrator/actions/workflows/ci.yml)
+  [![Release workflow](https://github.com/AgelxNash/go-repo-orchestrator/actions/workflows/release.yaml/badge.svg)](https://github.com/AgelxNash/go-repo-orchestrator/actions/workflows/release.yaml)
+  [![Latest release](https://img.shields.io/github/v/release/AgelxNash/go-repo-orchestrator)](https://github.com/AgelxNash/go-repo-orchestrator/releases)
+  [![Go Reference](https://pkg.go.dev/badge/github.com/AgelxNash/go-repo-orchestrator.svg)](https://pkg.go.dev/github.com/AgelxNash/go-repo-orchestrator)
+  [![License](https://img.shields.io/github/license/AgelxNash/go-repo-orchestrator)](https://github.com/AgelxNash/go-repo-orchestrator/blob/main/LICENSE)
+</div>
 
-[![Release workflow](https://github.com/AgelxNash/go-repo-orchestrator/actions/workflows/release.yaml/badge.svg)](https://github.com/AgelxNash/go-repo-orchestrator/actions/workflows/release.yaml)
-[![CI](https://github.com/AgelxNash/go-repo-orchestrator/actions/workflows/ci.yml/badge.svg)](https://github.com/AgelxNash/go-repo-orchestrator/actions/workflows/ci.yml)
-[![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-fe5196.svg)](https://www.conventionalcommits.org/en/v1.0.0/)
-[![Latest release](https://img.shields.io/github/v/release/AgelxNash/go-repo-orchestrator)](https://github.com/AgelxNash/go-repo-orchestrator/releases)
-[![Go version](https://img.shields.io/github/go-mod/go-version/AgelxNash/go-repo-orchestrator)](https://github.com/AgelxNash/go-repo-orchestrator/blob/main/go.mod)
-[![License](https://img.shields.io/github/license/AgelxNash/go-repo-orchestrator)](https://github.com/AgelxNash/go-repo-orchestrator/blob/main/LICENSE)
+<br/>
 
-Локальная TUI-утилита для безопасной подготовки удаления Git-веток через генерацию скриптов (`.sh`/`.bat`).
+> **go-repo-orchestrator** — это ваш персональный пульт управления хаосом в микросервисах. Инструмент решает проблемы долгого онбординга, позволяет проводить сквозной поиск по веткам, следить за реальными статусами задач из Jira и генерировать безопасные скрипты для удаления мусорных веток в интерактивном TUI.
 
-## Назначение
+---
 
-`go-repo-orchestrator` не удаляет ветки напрямую из интерфейса. Приложение формирует скрипт удаления, который пользователь запускает самостоятельно.
+## 📖 Оглавление
+- [🔍 Проблема и Решение](#-проблема-и-решение)
+- [✨ Скрытые фичи и возможности](#-скрытые-фичи-и-возможности)
+- [🚀 Быстрый старт](#-быстрый-старт)
+- [💻 Установка](#-установка)
+- [⌨️ Горячие клавиши](#️-горячие-клавиши)
+- [⚙️ Конфигурация](#️-конфигурация)
+- [🤝 Contributing](#-contributing)
 
-## Ключевые возможности
+---
 
-- TUI в стиле FAR/MC для работы с репозиториями и ветками.
-- Режимы источников репозитория: `url`, `path`, `url+path`.
-- Безопасные правила отбора веток (current/default/`branch.keep` защищены).
-- Генерация команд:
-  - локальные ветки: `git branch -d` / `git branch -D`
-  - удаленные ветки: `git push <remote> --delete <branch>`
-- Опциональная Jira status интеграция по regex key extraction и batch search API.
-- Опциональный Playwright transport для Jira-групп с `playwright: true` (включается только если хотя бы одна Jira-группа его требует).
-- Логирование в stdout для runtime отключено намеренно, чтобы не ломать TUI-вывод.
+## 🔍 Проблема и Решение
 
-## Требования
+При работе с десятками микросервисов разработчик тратит кучу времени на рутину: долгий онбординг, сложные переключения (cd) между папками, потерю контекста статусов из таск-трекера и страх случайно удалить нужную ветку командой `git branch -D`.
 
+**go-repo-orchestrator решает эти боли, объединяя управление всеми репозиториями в одном интерфейсе.**
+
+| Боль | ❌ Обычный подход | ✅ go-repo-orchestrator |
+|---|---|---|
+| **Долгий онбординг** | Ручное клонирование 50+ репо по папкам | Запуск с общим `config.yaml` автоматически вытягивает и раскладывает все проекты |
+| **Поиск и навигация** | Бесконечные `cd`, `git branch`, IDE | Глобальный поиск веток и переход (Checkout) кликом мыши или нажатием `Enter` |
+| **Зависающие задачи** | Искать статусы вручную | Сквозной мониторинг статусов из Jira напрямую в TUI (легко найти отмененные задачи) |
+| **Смена Jira/Проектов** | Неудобно отслеживать разные домены | Поддержка одновременной работы сразу с **несколькими** инстансами Jira |
+| **Опасность `git branch -D`**| Страх удалить чужой код / production | TUI-выбор с предпросмотром, генерацией скрипта и `branch.keep` regex защитой |
+
+### 🔒 Безопасное удаление по умолчанию
+Деструктивные команды не выполняются "под капотом". Вы выбираете ветки в TUI, после чего генерируется `.sh` / `.bat` скрипт, который вы сможете проанализировать и запустить вручную. К тому же, утилита аппаратно защищает текущую активную ветку и системные ветки (по умолчанию: `main|master|prod|release`).
+
+---
+
+## ✨ Скрытые фичи и возможности
+
+- 🚀 **Мгновенный онбординг (Workspace-менеджер)**: Поделитесь одним YAML-файлом конфигурации с командой. При запуске оркестратор сам склонирует все недостающие репозитории и разложит их по правильным директориям, экономя часы новичкам.
+- 👁️ **Глубокая интеграция с Jira**: 
+  - Оркестратор мониторит не только факт того, что ветка слита, но и **реальные статусы задач**. 
+  - Вы сразу поймете, что задача висит "В ревью", даже если Merge Request ещё никто не открыл.
+  - Мгновенное выявление заброшенных или отмененных из-за смены приоритетов задач для очистки локального мусора.
+  - **Multi-Jira**: Работа с несколькими Jira-инстансами одновременно (идеально для ситуаций, когда часть проектов "переезжает" на новые сервера).
+- 🔀 **Удобная навигация и Checkout**: Смена активных веток одним нажатием `Enter`. Вам больше не нужно "прыгать" через терминалы и IDE по папкам.
+- 🔎 **Сквозной поиск**: Глобальный поиск нужных веток и репозиториев прямо из TUI. Незаменимая фича, когда в рамках одной задачи вы модифицируете 5-7 разных репозиториев.
+- 🗑️ **Генерация команд очистки**: Формирует пачки `git branch -D` для локальных веток и `git push <remote> --delete` для удаленных с учетом строгих правил безопасности.
+- 🌐 **CDP & Playwright-мосты**: Дополнительный транспорт через Chromium для сложных Jira-групп с защитой (Cloudflare/Captchas).
+
+---
+
+## 🚀 Быстрый старт
+
+**Требования:**
 - Go `1.24+`
-- `git` в `PATH`
+- Установленный `git` в `$PATH`
 
-## Быстрый старт
+Существует два основных сценария работы с конфигурацией оркестратора:
 
-`--config` обязателен для всех CLI-команд.
+### Сценарий 1: С готовым конфингом (Онбординг)
+Идеально, если в вашей команде уже есть подготовленный файл конфигурации. Оркестратор автоматически скачает (через `git clone`) недостающие репозитории по URL в нужную структуру.
 
 ```bash
-go run ./cmd/go-repo-orchestrator --config ./config.example.yaml
+# 1. Скачиваем конфигурацию (в качестве примера возьмем базовый шаблон)
+curl -O https://raw.githubusercontent.com/AgelxNash/go-repo-orchestrator/main/config.example.yaml
+
+# 2. Запускаем оркестратор
+go run ./cmd/go-repo-orchestrator --config config.example.yaml
 ```
 
-Генерация нового конфига:
+### Сценарий 2: Генерация нового конфига
+Если вы внедряете утилиту в свой проект с нуля, создайте чистый шаблон для заполнения:
 
 ```bash
+# 1. Генерируем новый файл
 go run ./cmd/go-repo-orchestrator generate --config ./my-repo.gbc.yaml
+
+# 2. Отредактируйте my-repo.gbc.yaml, добавив свои пути и настройки.
+
+# 3. Запускаем оркестратор
+go run ./cmd/go-repo-orchestrator --config ./my-repo.gbc.yaml
 ```
 
-Справка CLI:
-
+Для просмотра полной справки по CLI:
 ```bash
 go run ./cmd/go-repo-orchestrator --help
 ```
 
-## Установка
+---
 
-Из исходников:
+## 💻 Установка
 
+**Из исходников:**
 ```bash
 make build
 ./bin/go-repo-orchestrator --config ./config.example.yaml
 ```
 
-Через `go install`:
-
+**Через go install:**
 ```bash
 go install github.com/agelxnash/go-repo-orchestrator/cmd/go-repo-orchestrator@latest
 ```
 
-Для релизных бинарников используйте GitHub Releases этого репозитория.
+*Для скачивания готовых бинарных файлов посетите раздел [GitHub Releases](https://github.com/AgelxNash/go-repo-orchestrator/releases).*
 
-## ⌨️ Горячие клавиши (основные)
+---
 
-- `F2` — показать/скрыть нижнюю info-панель
-- `F3` — поиск
-- `F4` — scope веток (`локальные` → `удаленные` → `все`)
-- `F5` — обновление (контекстно по табу)
-- `r` — алиас `F5`
-- `F6` — сортировка
-- `F7`:
-  - в табе `Репозитории`: `fetch + pull` активного репозитория
-  - в табе `Ветки`: локальная tracking-копия удаленной ветки (доступно не для `url`-only репозитория)
-- `F8` — генерация скрипта
-- `g` — алиас `F8`
-- `F9` — скрыть/показать защищенные ветки (таб `Ветки`)
-- `Enter`:
-  - в табе `Репозитории`: открыть таб `Ветки` для активного репозитория
-  - в табе `Ветки`: checkout локальной ветки
-- `Space` / `Insert` — выбрать ветку
-- `F10` / `q` / `Ctrl+C` — выход
+## ⌨️ Горячие клавиши
 
-## ⚙️ Формат конфига
+#### Основные
+- **`F2`** — Показать/скрыть нижнюю панель информации.
+- **`F3`** — Поиск (Глобально по веткам и проектам).
+- **`F4`** — Область веток (`Локальные` → `Удаленные` → `Все`).
+- **`F5`** (или `r`) — Обновить контекст текущей вкладки.
+- **`F6`** — Сортировка.
+- **`F8`** (или `g`) — Генерация скрипта.
+- **`F10`** (или `q` / `Ctrl+C`) — Выход из приложения.
 
-См. `config.example.yaml`.
+#### Вкладка «Репозитории»
+- **`Enter`**: Открыть ветки для активного репозитория.
+- **`F7`**: Выполнить `fetch + pull` для активного репозитория.
 
-Коротко по ключам:
+#### Вкладка «Ветки»
+- **`Enter`**: Сделать `checkout` на выбранную ветку без необходимости открывать терминал.
+- **`Пробел`** / **`Insert`**: Отметить ветку для скрипта удаления.
+- **`F7`**: Создать локальную tracking-копию удаленной ветки (если репозиторий не в режиме `url`-only).
+- **`F9`**: Скрыть/показать защищенные ветки.
 
-- `repos[].name`, `repos[].url`, `repos[].path`
-- `repos[].branch.keep` — regex защищенных веток
-- `repos[].branch.jira` — regex извлечения Jira key
-- `jira[]` — Jira-группы (`group`, `url`, `playwright`, `type`, `token`/`login`)
-- `browser.cdp_url` — подключение к внешнему Chromium через CDP
+---
 
-Для ENV override используется префикс `GBC_` (например, `GBC_STATE_DIR`).
+## ⚙️ Конфигурация
 
-## Каталог состояния
+Все настройки по умолчанию и пример заполнения находятся в шаблоне `config.example.yaml`, который вы можете сгенерировать командой `generate` (см. Быстрый старт). Обязательным требованием является передача файла конфигурации через флаг `--config`.
 
-- Linux/macOS: `$HOME/.local/state/go-repo-orchestrator`
-- Fallback: `.go-repo-orchestrator-state`
+**Ключевые секции конфига:**
+- `repos[].name`, `repos[].url`, `repos[].path` — базовые настройки репозитория (поддержка `url`, `path`, `url+path`).
+- `repos[].branch.keep` — regex-выражение для системных/защищенных веток.
+- `repos[].branch.jira` — regex-выражение для извлечения Jira ключа (например, `[A-Z]+-\d+`).
+- `jira[]` — настройки интеграции с Jira (`group`, `url`, `playwright`, `type`, `token`/`login`).
+- `browser.cdp_url` — подключение к внешнему Chromium через CDP.
 
-Workspace managed clone:
+*Можно переопределять конфигурацию через переменные окружения с префиксом `GBC_` (например, `GBC_STATE_DIR`).*
 
-- `<state-dir>/workspace/<repo-name>__<url-hash>/`
+### Каталог состояния
+Утилита хранит свое состояние (и выкачанные workspace-репозитории) в:
+- **Linux/macOS:** `$HOME/.local/state/go-repo-orchestrator`
+- **Fallback:** `.go-repo-orchestrator-state`
 
-## Генерируемые скрипты
+Клонированные workspace хранятся по пути: `<state-dir>/workspace/<repo-name>__<url-hash>/`.
 
-Скрипты удаления создаются с префиксом имени проекта:
-
+### О генерации скриптов очистки
+Генерируемые `.sh`/`.bat` создаются в вашей текущей рабочей директории терминала в формате:
 - `go-repo-orchestrator-<repo>-delete-<session>-<timestamp>.sh`
-- `go-repo-orchestrator-<repo>-delete-<session>-<timestamp>.bat`
 
-## Roadmap
+---
 
-- Возможное введение полноценного i18n-слоя для CLI/TUI и пользовательских сообщений.
-- Потенциальная опция автооткрытия IDE (VS Code / JetBrains) для выбранного репозитория и/или ветки.
+## 🤝 Contributing
 
-## Release и подписи (maintainers)
+Будем рады вашему вкладу! Для ознакомления с правилами *Conventional Commits*, требованиями к *Pull Requests* и обязательными проверками, пожалуйста, прочитайте [CONTRIBUTING.md](CONTRIBUTING.md).
 
-Релизный workflow: `.github/workflows/release.yaml`.
+<details>
+<summary><b>🛠️ Подготовка окружения (Onboarding)</b></summary>
 
-- Триггер: push тега `v*`
-- Используется GoReleaser + GPG signing checksum-файла
-- Версия по умолчанию для dev-сборок: `dev`; релизные метаданные прошиваются через `ldflags` в `.goreleaser.yaml`
-- В workflow есть preflight-проверки (тег, секреты, `go test`, `go vet`, `goreleaser check`)
-
-GitHub Secrets для релиза:
-
-- `GPG_PRIVATE_KEY` — приватный ключ для подписи
-- `GPG_FINGERPRINT` — fingerprint ключа
-- `GPG_PASSPHRASE` — passphrase ключа (опционально, если ключ защищен passphrase)
-
-Проверка подписи после скачивания релизных артефактов:
-
-```bash
-gpg --verify checksums.txt.sig checksums.txt
-sha256sum -c checksums.txt
-```
-
-## Подготовка окружения для контрибьютора
-
-Рекомендуемый минимальный onboarding перед первым push:
+Быстрый onboarding перед первым коммитом:
 
 ```bash
 make commitlint-install
 make golangci-lint-install
 make setup-hooks
 ```
+*Команды установят необходимые утилиты (`commitlint`, `golangci-lint`) и пропишут настройки `core.hooksPath=.githooks` для локальных quality gates (`pre-commit` и `pre-push`).*
 
-Что настраивается:
-
-- `make commitlint-install` — устанавливает бинарь `commitlint` (если он еще не установлен).
-- `make golangci-lint-install` — устанавливает бинарь `golangci-lint` (если он еще не установлен).
-- `make setup-hooks` — настраивает `core.hooksPath=.githooks` и включает локальные хуки:
-  - `commit-msg`: проверка формата сообщения коммита (Conventional Commits).
-  - `pre-commit`: быстрые quality gates (`make fmt-check` и `make vet`).
-  - `pre-push`: полный локальный quality gate (`make check`) перед отправкой в remote.
-
-## Локальная проверка качества
-
-```bash
-gofmt -w ./cmd ./internal
-go test $(go list ./cmd/... ./internal/...)
-go vet $(go list ./cmd/... ./internal/...)
-go build -o ./bin/go-repo-orchestrator ./cmd/go-repo-orchestrator
-golangci-lint run --timeout=5m $(go list ./cmd/... ./internal/...)
-```
-
-Эквивалентно через `Makefile`:
-
-```bash
-make test
-make build
-make check
-```
-
-Быстрые шаги вручную (как в хуках):
-
+**Быстрые локальные проверки (manual call):**
 ```bash
 make fmt-check
 make vet
 make check
 ```
+</details>
 
-## Contributing
+<details>
+<summary><b>📦 Информация о релизах (Для Maintainers)</b></summary>
 
-Для правил по Conventional Commits, требованиям к PR title и обязательным проверкам перед merge см. `CONTRIBUTING.md`.
+Релизный workflow находится в `.github/workflows/release.yaml`.
+- **Триггер:** push тега с префиксом `v*`.
+- Используется `GoReleaser` + `GPG signing` checksum-файла.
+
+**Проверка подписи скачанных артефактов в релизе:**
+```bash
+gpg --verify checksums.txt.sig checksums.txt
+sha256sum -c checksums.txt
+```
+</details>
+
+---
+
+## 📈 Roadmap
+
+- Введение полноценного i18n-слоя для CLI/TUI и пользовательских сообщений.
+- Потенциальная опция автооткрытия IDE (VS Code / JetBrains) для выбранного репозитория и/или ветки из интерфейса.
+
+---
 
 ## ⭐ Star History
 
-<a href="https://www.star-history.com/?repos=AgelxNash%2Fgo-repo-orchestrator&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=AgelxNash/go-repo-orchestrator&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=AgelxNash/go-repo-orchestrator&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/image?repos=AgelxNash/go-repo-orchestrator&type=date&legend=top-left" />
- </picture>
-</a>
+<div align="center">
+  <a href="https://www.star-history.com/?repos=AgelxNash%2Fgo-repo-orchestrator&type=date&legend=top-left">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=AgelxNash/go-repo-orchestrator&type=date&theme=dark&legend=top-left" />
+      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=AgelxNash/go-repo-orchestrator&type=date&legend=top-left" />
+      <img alt="Star History Chart" src="https://api.star-history.com/image?repos=AgelxNash/go-repo-orchestrator&type=date&legend=top-left" />
+    </picture>
+  </a>
+</div>
 
-## Contributors
+## 👥 Contributors
 
-<a href="https://github.com/AgelxNash/go-repo-orchestrator/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=AgelxNash/go-repo-orchestrator" />
-</a>
+<div align="center">
+  <a href="https://github.com/AgelxNash/go-repo-orchestrator/graphs/contributors">
+    <img src="https://contrib.rocks/image?repo=AgelxNash/go-repo-orchestrator" alt="Contributors" />
+  </a>
+  <br/>
+  <i>Made with <a href="https://contrib.rocks">contrib.rocks</a>.</i>
+</div>
 
-Made with [contrib.rocks](https://contrib.rocks).
+---
 
 ## 📄 License
 
-MIT © [AgelxNash](https://github.com/AgelxNash)
+**MIT** © [AgelxNash](https://github.com/AgelxNash)
 
-[![Views](https://github-view-counter.vercel.app/api?username=AgelxNash/go-repo-orchestrator&label=views&color=0969da&labelColor=555555)](https://github.com/AgelxNash/go-repo-orchestrator)
+<div align="center">
+  <br/>
+  <a href="https://github.com/AgelxNash/go-repo-orchestrator">
+    <img src="https://github-view-counter.vercel.app/api?username=AgelxNash/go-repo-orchestrator&label=views&color=0969da&labelColor=555555" alt="Views"/>
+  </a>
+</div>
