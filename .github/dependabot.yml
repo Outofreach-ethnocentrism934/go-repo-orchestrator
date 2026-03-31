@@ -1,0 +1,24 @@
+version: 2
+updates:
+  # Настройка для Go-модулей (go.mod)
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+    commit-message:
+      prefix: "build(deps)" # Поддержка Conventional Commits
+    labels:
+      - "dependencies"
+
+  # Настройка для GitHub Actions (.github/workflows)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+    commit-message:
+      prefix: "ci(deps)" # Поддержка Conventional Commits
+    labels:
+      - "dependencies"
+      - "ci"
