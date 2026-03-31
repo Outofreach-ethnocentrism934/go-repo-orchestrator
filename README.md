@@ -6,7 +6,6 @@
 [![Latest release](https://img.shields.io/github/v/release/AgelxNash/go-repo-orchestrator)](https://github.com/AgelxNash/go-repo-orchestrator/releases)
 [![Go version](https://img.shields.io/github/go-mod/go-version/AgelxNash/go-repo-orchestrator)](https://github.com/AgelxNash/go-repo-orchestrator/blob/main/go.mod)
 [![License](https://img.shields.io/github/license/AgelxNash/go-repo-orchestrator)](https://github.com/AgelxNash/go-repo-orchestrator/blob/main/LICENSE)
-[![Views](https://github-view-counter.vercel.app/api?username=AgelxNash/go-repo-orchestrator&label=views&color=0969da&labelColor=555555)](https://github.com/AgelxNash/go-repo-orchestrator)
 
 Локальная TUI-утилита для безопасной подготовки удаления Git-веток через генерацию скриптов (`.sh`/`.bat`).
 
@@ -194,6 +193,16 @@ make check
 
 Для правил по Conventional Commits, требованиям к PR title и обязательным проверкам перед merge см. `CONTRIBUTING.md`.
 
+## ⭐ Star History
+
+<a href="https://www.star-history.com/?repos=AgelxNash%2Fgo-repo-orchestrator&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=AgelxNash/go-repo-orchestrator&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=AgelxNash/go-repo-orchestrator&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/image?repos=AgelxNash/go-repo-orchestrator&type=date&legend=top-left" />
+ </picture>
+</a>
+
 ## Contributors
 
 <a href="https://github.com/AgelxNash/go-repo-orchestrator/graphs/contributors">
@@ -206,12 +215,4 @@ Made with [contrib.rocks](https://contrib.rocks).
 
 MIT © [Bharath-code](https://github.com/Bharath-code)
 
-## ⭐ Star History
-
-<a href="https://www.star-history.com/?repos=AgelxNash%2Fgo-repo-orchestrator&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=AgelxNash/go-repo-orchestrator&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=AgelxNash/go-repo-orchestrator&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/image?repos=AgelxNash/go-repo-orchestrator&type=date&legend=top-left" />
- </picture>
-</a>
+[![Views](https://github-view-counter.vercel.app/api?username=AgelxNash/go-repo-orchestrator&label=views&color=0969da&labelColor=555555)](https://github.com/AgelxNash/go-repo-orchestrator)
