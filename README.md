@@ -213,6 +213,6 @@ Made with [contrib.rocks](https://contrib.rocks).
 
 ## 📄 License
 
-MIT © [Bharath-code](https://github.com/Bharath-code)
+MIT © [AgelxNash](https://github.com/AgelxNash)
 
 [![Views](https://github-view-counter.vercel.app/api?username=AgelxNash/go-repo-orchestrator&label=views&color=0969da&labelColor=555555)](https://github.com/AgelxNash/go-repo-orchestrator)
