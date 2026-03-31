@@ -23,11 +23,9 @@ type gitClient interface {
 	DetectDefaultBranch(ctx context.Context, repoPath, currentBranch string) (string, error)
 	ListBranches(ctx context.Context, repoPath string) ([]model.BranchInfo, error)
 	CurrentBranch(ctx context.Context, repoPath string) (string, error)
-	DeleteLocalBranch(ctx context.Context, repoPath, branch string) error
 	BranchMetadata(ctx context.Context, repoPath, branch, defaultBranch string) (model.MergeStatus, string, error)
 	GetDirtyStats(ctx context.Context, repoPath string) (model.DirtyStats, error)
 	GetRepoStat(ctx context.Context, repoPath string) (model.RepoStat, error)
-	SyncRemote(ctx context.Context, repoPath, repoURL string) error
 	UpdateOpensourceRepo(ctx context.Context, url, targetPath, branch string) error
 	ForceCheckout(ctx context.Context, repoPath, branch string) error
 	CreateTrackingBranchAndCheckout(ctx context.Context, repoPath, localBranch, remoteBranch string) error
@@ -449,14 +447,6 @@ func (c *Cleaner) CreateLocalTrackingBranch(ctx context.Context, repo config.Rep
 	}
 
 	return c.git.CreateTrackingBranchAndCheckout(ctx, managedPath, localBranch, remoteBranch)
-}
-
-// UpdateOpensource синхронизирует opensource-репозиторий (clone/fetch/reset).
-func (c *Cleaner) UpdateOpensource(ctx context.Context, repo config.RepoConfig) error {
-	if repo.SourceType() != "opensource" {
-		return fmt.Errorf("репозиторий %q не является opensource (требуются url и path)", repo.Name)
-	}
-	return c.git.UpdateOpensourceRepo(ctx, repo.URL, repo.Path, repo.Branch.Autoswitch)
 }
 
 // FetchAndPullRepo выполняет безопасное обновление выбранного репозитория через fetch + pull.

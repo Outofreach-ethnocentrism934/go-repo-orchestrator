@@ -347,8 +347,8 @@ func TestLoadWithPathSource(t *testing.T) {
 	if repo.SourceType() != "path" {
 		t.Fatalf("expected path source type")
 	}
-	if repo.SourceValue() == "" {
-		t.Fatalf("path source value should be set")
+	if repo.Path == "" {
+		t.Fatalf("path source should keep non-empty path")
 	}
 }
 

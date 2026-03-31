@@ -263,18 +263,6 @@ func (r RepoConfig) SourceType() string {
 	return "url"
 }
 
-// SourceValue возвращает строковое значение активного источника репозитория.
-func (r RepoConfig) SourceValue() string {
-	if r.SourceType() == "opensource" {
-		return r.Path
-	}
-	if strings.TrimSpace(r.Path) != "" {
-		return r.Path
-	}
-
-	return r.URL
-}
-
 func compilePatterns(patterns []string) ([]*compiledPattern, error) {
 	result := make([]*compiledPattern, 0, len(patterns))
 	for _, pattern := range patterns {

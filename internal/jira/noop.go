@@ -62,8 +62,3 @@ func NewNoop() Noop { return Noop{} }
 func (Noop) ResolveStatus(_, _, _, _ string) StatusResult {
 	return StatusResult{Status: unknownStatus, State: StatusStateUnmapped, Reason: StatusReasonNoMapping}
 }
-
-// IsBranchBlocked в noop-режиме всегда разрешает ветку к обработке.
-func (Noop) IsBranchBlocked(_, _ string) (bool, string) {
-	return false, "jira live api disabled; regex extraction only"
-}

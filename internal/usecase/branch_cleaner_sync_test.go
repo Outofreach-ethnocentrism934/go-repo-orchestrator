@@ -24,7 +24,6 @@ type fakeGitClient struct {
 	branchMetadataFn      func(ctx context.Context, repoPath, branch, defaultBranch string) (model.MergeStatus, string, error)
 	getDirtyStatsFn       func(ctx context.Context, repoPath string) (model.DirtyStats, error)
 	getRepoStatFn         func(ctx context.Context, repoPath string) (model.RepoStat, error)
-	syncRemoteFn          func(ctx context.Context, repoPath, repoURL string) error
 	updateOpensourceFn    func(ctx context.Context, url, targetPath, branch string) error
 	createTrackingFn      func(ctx context.Context, repoPath, localBranch, remoteBranch string) error
 }
@@ -97,10 +96,6 @@ func (f *fakeGitClient) CurrentBranch(ctx context.Context, repoPath string) (str
 	return "", nil
 }
 
-func (f *fakeGitClient) DeleteLocalBranch(_ context.Context, repoPath, branch string) error {
-	return nil
-}
-
 func (f *fakeGitClient) BranchMetadata(ctx context.Context, repoPath, branch, defaultBranch string) (model.MergeStatus, string, error) {
 	if f.branchMetadataFn != nil {
 		return f.branchMetadataFn(ctx, repoPath, branch, defaultBranch)
@@ -120,13 +115,6 @@ func (f *fakeGitClient) GetRepoStat(ctx context.Context, repoPath string) (model
 		return f.getRepoStatFn(ctx, repoPath)
 	}
 	return model.RepoStat{}, nil
-}
-
-func (f *fakeGitClient) SyncRemote(ctx context.Context, repoPath, repoURL string) error {
-	if f.syncRemoteFn != nil {
-		return f.syncRemoteFn(ctx, repoPath, repoURL)
-	}
-	return nil
 }
 
 func (f *fakeGitClient) UpdateOpensourceRepo(ctx context.Context, url, targetPath, branch string) error {

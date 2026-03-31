@@ -11,7 +11,6 @@ import (
 )
 
 const (
-	DefaultConfigPath = "config.yaml"
 	DefaultEnvPrefix  = "GBC"
 	DefaultGitTimeout = 30 * time.Second
 )

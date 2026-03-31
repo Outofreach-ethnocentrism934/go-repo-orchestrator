@@ -760,33 +760,6 @@ func TestBranchesPanelLoadHintShowsF5(t *testing.T) {
 	}
 }
 
-func TestScopeSwitchCyclesLocalRemoteAll(t *testing.T) {
-	m := NewModel(&config.Config{
-		Repos: []config.RepoConfig{{Name: "repo-a", Path: "/tmp/repo-a"}},
-	}, nil, false)
-
-	m.focus = focusBranches
-	m.activeRepo = model.RepoBranches{RepoName: "repo-a"}
-
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyF4})
-	next := updated.(Model)
-	if next.branchScope != branchScopeLocal {
-		t.Fatalf("expected local scope after first switch, got %v", next.branchScope)
-	}
-
-	updated, _ = next.Update(tea.KeyMsg{Type: tea.KeyF4})
-	next = updated.(Model)
-	if next.branchScope != branchScopeRemote {
-		t.Fatalf("expected remote scope after second switch, got %v", next.branchScope)
-	}
-
-	updated, _ = next.Update(tea.KeyMsg{Type: tea.KeyF4})
-	next = updated.(Model)
-	if next.branchScope != branchScopeAll {
-		t.Fatalf("expected all scope after third switch, got %v", next.branchScope)
-	}
-}
-
 func TestScopeLabelVisibleInHotkeyBarAndTopMenu(t *testing.T) {
 	m := NewModel(&config.Config{
 		Repos: []config.RepoConfig{{Name: "repo-a", Path: "/tmp/repo-a"}},

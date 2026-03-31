@@ -177,25 +177,6 @@ func (c *Client) UpdateOpensourceRepo(ctx context.Context, url, targetPath, bran
 	return nil
 }
 
-// SyncRemote обновляет remote refs для локального репозитория без изменения рабочего дерева.
-func (c *Client) SyncRemote(ctx context.Context, repoPath, repoURL string) error {
-	unlock, err := c.lockForPath(ctx, repoPath)
-	if err != nil {
-		return err
-	}
-	defer unlock()
-
-	if err := c.ensureOriginURL(ctx, repoPath, repoURL); err != nil {
-		return err
-	}
-
-	if err := c.fetchPrune(ctx, repoPath); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // FetchAndPull выполняет безопасный fetch + pull для текущей ветки.
 func (c *Client) FetchAndPull(ctx context.Context, repoPath, repoURL string) error {
 	unlock, err := c.lockForPath(ctx, repoPath)
@@ -461,23 +442,6 @@ func (c *Client) CurrentBranch(ctx context.Context, repoPath string) (string, er
 	}
 
 	return head.Name().Short(), nil
-}
-
-// DeleteLocalBranch принудительно удаляет локальную ветку.
-func (c *Client) DeleteLocalBranch(ctx context.Context, repoPath, branch string) error {
-	exists, err := c.BranchExists(ctx, repoPath, branch)
-	if err != nil {
-		return fmt.Errorf("проверка существования ветки %q: %w", branch, err)
-	}
-	if !exists {
-		return fmt.Errorf("ветка %q не найдена", branch)
-	}
-
-	if _, err := c.runGit(ctx, repoPath, "branch", "-D", branch); err != nil {
-		return fmt.Errorf("ошибка удаления ветки %q: %w", branch, err)
-	}
-
-	return nil
 }
 
 // BranchExists проверяет существование локальной ветки по имени.
