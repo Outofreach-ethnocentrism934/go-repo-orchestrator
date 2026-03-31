@@ -21,4 +21,3 @@ updates:
       prefix: "ci(deps)" # Поддержка Conventional Commits
     labels:
       - "dependencies"
-      - "ci"
