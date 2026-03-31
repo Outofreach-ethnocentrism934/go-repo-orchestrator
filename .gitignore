@@ -1,6 +1,7 @@
 bin/
 dist/
 tmp/
+example/
 coverage.out
 *.log
 .DS_Store
