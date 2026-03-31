@@ -67,7 +67,7 @@ go install github.com/agelxnash/go-repo-orchestrator/cmd/go-repo-orchestrator@la
 
 Для релизных бинарников используйте GitHub Releases этого репозитория.
 
-## Горячие клавиши (основные)
+## ⌨️ Горячие клавиши (основные)
 
 - `F2` — показать/скрыть нижнюю info-панель
 - `F3` — поиск
@@ -87,7 +87,7 @@ go install github.com/agelxnash/go-repo-orchestrator/cmd/go-repo-orchestrator@la
 - `Space` / `Insert` — выбрать ветку
 - `F10` / `q` / `Ctrl+C` — выход
 
-## Формат конфига
+## ⚙️ Формат конфига
 
 См. `config.example.yaml`.
 
@@ -187,3 +187,25 @@ make check
 ## Contributing
 
 Для правил по Conventional Commits, требованиям к PR title и обязательным проверкам перед merge см. `CONTRIBUTING.md`.
+
+## Contributors
+
+<a href="https://github.com/AgelxNash/go-repo-orchestrator/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=AgelxNash/go-repo-orchestrator" />
+</a>
+
+Made with [contrib.rocks](https://contrib.rocks).
+
+## 📄 License
+
+MIT © [Bharath-code](https://github.com/Bharath-code)
+
+## ⭐ Star History
+
+<a href="https://www.star-history.com/?repos=AgelxNash%2Fgo-repo-orchestrator&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=AgelxNash/go-repo-orchestrator&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=AgelxNash/go-repo-orchestrator&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/image?repos=AgelxNash/go-repo-orchestrator&type=date&legend=top-left" />
+ </picture>
+</a>
