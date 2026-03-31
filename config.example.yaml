@@ -1,46 +1,86 @@
-browser:
+sbrowser:
   cdp_url: 'http://127.0.0.1:9222'
 
 jira:
-  - group: 'EXAMPLE'
-    url: https://jira.example.com
-    type: 'login'
-    login:
-      username: 'test@example.com'
-      password: 'example-user-password'
-
-  - group: 'TASKS'
-    url: https://tasks.example.org
-    playwright: false
-    type: 'token'
-    token: 'exampletoken'
-
-  - group: 'IDEA'
-    url: https://idea.example.org
-    playwright: true
+  - group: 'MARIADB'
+    url: https://jira.mariadb.org/
 
 repos:
-  - name: 'Go repo orchestrator'
+  - name: 'Repo orchestrator'
     url: git@github.com:AgelxNash/go-repo-orchestrator.git
     branch:
       keep:
-        - '^(main|develop)$'
-        - '^release/.*$'
-      jira:
-        - '^(?P<EXAMPLE>(WEB|MOBI|BFF)\-\d+)$'
-        - '^((fix|bug|feature|hotfix)\/)*(?P<TASKS>(ECMDEV|SIMPLE)\-\d+)$'
+        - '^main$'
 
-  - name: 'Local monorepo'
-    path: ./tmp/test-monorepo
+  - name: 'MariaDB Connector/C'
+    url: git@github.com:mariadb-corporation/mariadb-connector-c.git
+    path: ./example/mariadb/c
     branch:
       keep:
-        - '^(main|master|develop)$'
+        - '^(3\.[1-4])'
       jira:
-        - '^(?:feature|bugfix)\/(?P<TASKS>[A-Z]+-\d+)$'
-        - '(?P<IDEA>[A-Z]+-\d+)'
+        - '(^|-\/)(?P<MARIADB>(CONC|MDEV|MCOL|CONCPP|CONJ|CONJS|ODBC|CONPY|R2DBC|MDBF|MXS|MDEV)\-\d+)'
 
-  - name: "AgelxNash readme"
-    path: ./tmp/agelxnash-readme
-    url: git@github.com:AgelxNash/AgelxNash.git
+
+  - name: 'MariaDB Connector/J'
+    url: git@github.com:mariadb-corporation/mariadb-connector-j.git
+    path: ./example/mariadb/j
     branch:
-      autoswitch: 'main'
+      keep:
+        - '^(main|develop)$'
+      jira:
+        - '(^|-\/)(?P<MARIADB>(CONC|MDEV|MCOL|CONCPP|CONJ|CONJS|ODBC|CONPY|R2DBC|MDBF|MXS|MDEV)\-\d+)'
+
+
+  - name: 'MariaDB Docs'
+    url: git@github.com:mariadb-corporation/mariadb-docs.git
+    path: ./example/mariadb/docs
+    branch:
+      autoswitch: main
+      keep:
+        - '^main$'
+      jira:
+        - '(^|-\/)(?P<MARIADB>(CONC|MDEV|MCOL|CONCPP|CONJ|CONJS|ODBC|CONPY|R2DBC|MDBF|MXS|MDEV)\-\d+)'
+
+
+  - name: 'MariaDB QA'
+    url: git@github.com:mariadb-corporation/mariadb-qa.git
+    path: ./example/mariadb/qa
+    branch:
+      keep:
+        - '^master$'
+      jira:
+        - '(^|-\/)(?P<MARIADB>(CONC|MDEV|MCOL|CONCPP|CONJ|CONJS|ODBC|CONPY|R2DBC|MDBF|MXS|MDEV)\-\d+)'
+
+
+  - name: 'MariaDB Core storage engine'
+    url: git@github.com:mariadb-corporation/mariadb-columnstore-engine.git
+    path: ./example/mariadb/columnstore-engine
+    branch:
+      autoswitch: stable-23.10
+      keep:
+        - '^stable-(\d{2}\.\d{2})'
+      jira:
+        - '(^|-\/)(?P<MARIADB>(CONC|MDEV|MCOL|CONCPP|CONJ|CONJS|ODBC|CONPY|R2DBC|MDBF|MXS|MDEV)\-\d+)'
+
+
+  - name: 'MariaDB Connector ODBC'
+    url: git@github.com:mariadb-corporation/mariadb-connector-odbc.git
+    path: ./example/mariadb/connector-odbc
+    branch:
+      keep:
+        - '^(master|develop)$'
+        - '^odbc\-3\.1$'
+      jira:
+        - '(^|-\/)(?P<MARIADB>(CONC|MDEV|MCOL|CONCPP|CONJ|CONJS|ODBC|CONPY|R2DBC|MDBF|MXS|MDEV)\-\d+)'
+
+
+  - name: 'MaxScale'
+    url: git@github.com:mariadb-corporation/MaxScale.git
+    path: ./example/mariadb/max-scale
+    branch:
+      autoswitch: 24.02
+      keep:
+        - '^(2[2-4]}\.\d{2})$'
+      jira:
+        - '(^|-\/)(?P<MARIADB>(CONC|MDEV|MCOL|CONCPP|CONJ|CONJS|ODBC|CONPY|R2DBC|MDBF|MXS|MDEV)\-\d+)'
