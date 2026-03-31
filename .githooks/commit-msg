@@ -1,4 +1,15 @@
 #!/bin/sh
 
-# Проверяем формат сообщения коммита с помощью нативного Go-порта commitlint
-go run github.com/conventionalcommit/commitlint@latest lint --message "$1"
+# Проверяем формат сообщения коммита через установленный бинарь commitlint
+if command -v commitlint >/dev/null 2>&1; then
+	commitlint lint --message "$1"
+	exit $?
+fi
+
+if [ -x "$(go env GOPATH)/bin/commitlint" ]; then
+	"$(go env GOPATH)/bin/commitlint" lint --message "$1"
+	exit $?
+fi
+
+echo "commitlint не найден. Установите его: make commitlint-install"
+exit 1

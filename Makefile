@@ -7,6 +7,7 @@ GO_LIST_PATTERNS := ./cmd/... ./internal/... $(if $(wildcard ./pkg),./pkg/...)
 GO_PACKAGES := $(shell go list $(GO_LIST_PATTERNS))
 GOLANGCI_LINT := $(or $(shell command -v golangci-lint 2>/dev/null),$(shell go env GOPATH)/bin/golangci-lint)
 GORELEASER := $(or $(shell command -v goreleaser 2>/dev/null),$(shell go env GOPATH)/bin/goreleaser)
+COMMITLINT := $(or $(shell command -v commitlint 2>/dev/null),$(shell go env GOPATH)/bin/commitlint)
 
 .PHONY: test lint build check fmt-check vet
 
@@ -37,7 +38,13 @@ vet:
 
 check: fmt-check test vet build lint
 
-.PHONY: release-snapshot release-check goreleaser-install release-dry
+.PHONY: release-snapshot release-check goreleaser-install release-dry release-tag commitlint-install golangci-lint-install
+
+commitlint-install:
+	@test -x "$(COMMITLINT)" || go install github.com/conventionalcommit/commitlint@latest
+
+golangci-lint-install:
+	@test -x "$(GOLANGCI_LINT)" || go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
 goreleaser-install:
 	@test -x "$(GORELEASER)" || go install github.com/goreleaser/goreleaser/v2@latest
@@ -51,8 +58,34 @@ release-snapshot: goreleaser-install
 release-dry: goreleaser-install
 	"$(GORELEASER)" release --clean --skip=publish
 
+release-tag:
+	@set -eu; \
+	version='$(strip $(VERSION))'; \
+	message='$(subst ','\'',$(strip $(MESSAGE)))'; \
+	if [ -z "$$version" ]; then \
+		echo "VERSION is required."; \
+		echo "Usage: make release-tag VERSION=v0.1.0 MESSAGE=\"First public release\""; \
+		exit 1; \
+	fi; \
+	if [ -z "$$message" ]; then \
+		echo "MESSAGE is required."; \
+		echo "Usage: make release-tag VERSION=v0.1.0 MESSAGE=\"First public release\""; \
+		exit 1; \
+	fi; \
+	if git rev-parse --verify --quiet "refs/tags/$$version" >/dev/null; then \
+		echo "Tag '$$version' already exists. Choose another VERSION or delete existing tag."; \
+		exit 1; \
+	fi; \
+	msg_file=$$(mktemp); \
+	trap 'rm -f "$$msg_file"' EXIT INT TERM; \
+	printf '%s\n' "$$message" > "$$msg_file"; \
+	git tag -a "$$version" -F "$$msg_file"; \
+	git push origin "$$version"
+
 .PHONY: setup-hooks
 
-setup-hooks:
+setup-hooks: commitlint-install golangci-lint-install
 	git config core.hooksPath .githooks
 	chmod +x .githooks/commit-msg
+	chmod +x .githooks/pre-commit
+	chmod +x .githooks/pre-push

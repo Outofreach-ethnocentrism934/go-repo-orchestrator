@@ -139,14 +139,24 @@ gpg --verify checksums.txt.sig checksums.txt
 sha256sum -c checksums.txt
 ```
 
-## Git Hooks (Локальная проверка коммитов)
+## Подготовка окружения для контрибьютора
 
-Для того чтобы сообщения коммитов валидировались автоматически перед их созданием, настройте локальные Git хуки:
+Рекомендуемый минимальный onboarding перед первым push:
 
 ```bash
+make commitlint-install
+make golangci-lint-install
 make setup-hooks
 ```
-*Этот скрипт пропишет `core.hooksPath` и будет использовать нативный Go-порт инструмента `commitlint` для проверки сообщений.*
+
+Что настраивается:
+
+- `make commitlint-install` — устанавливает бинарь `commitlint` (если он еще не установлен).
+- `make golangci-lint-install` — устанавливает бинарь `golangci-lint` (если он еще не установлен).
+- `make setup-hooks` — настраивает `core.hooksPath=.githooks` и включает локальные хуки:
+  - `commit-msg`: проверка формата сообщения коммита (Conventional Commits).
+  - `pre-commit`: быстрые quality gates (`make fmt-check` и `make vet`).
+  - `pre-push`: полный локальный quality gate (`make check`) перед отправкой в remote.
 
 ## Локальная проверка качества
 
@@ -163,6 +173,14 @@ golangci-lint run --timeout=5m $(go list ./cmd/... ./internal/...)
 ```bash
 make test
 make build
+make check
+```
+
+Быстрые шаги вручную (как в хуках):
+
+```bash
+make fmt-check
+make vet
 make check
 ```
 

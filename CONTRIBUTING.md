@@ -21,13 +21,37 @@
 
 ### Локальная автоматическая проверка (Git Hooks)
 
-Чтобы включить проверку сообщений коммитов локально (до их пуша), выполните в корне проекта:
+Чтобы включить локальные проверки до CI, выполните в корне проекта:
 
 ```bash
+make commitlint-install
+make golangci-lint-install
 make setup-hooks
 ```
 
-Это добавит локальный Git-hook (`commit-msg`), который будет применять Go-утилиту `commitlint` для проверки формата сообщения при каждом `git commit`.
+После этого будут активны хуки:
+
+- `commit-msg` — проверка формата сообщения коммита через `commitlint`.
+- `pre-commit` — быстрые проверки (`make fmt-check`, `make vet`).
+- `pre-push` — полный quality gate (`make check`).
+
+При необходимости те же проверки можно запускать вручную:
+
+```bash
+make fmt-check
+make vet
+make check
+```
+
+## Helper-команда для релизного тега
+
+Для создания и публикации аннотированного тега используйте:
+
+```bash
+make release-tag VERSION=v0.1.0 MESSAGE='First public release "stable"'
+```
+
+`VERSION` и `MESSAGE` обязательны. Если тег уже существует, команда завершится с ошибкой до попытки `git push`.
 
 ## Требование к PR title
 
