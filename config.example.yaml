@@ -19,7 +19,7 @@ repos:
       keep:
         - '^(3\.[1-4])'
       jira:
-        - '(^|-\/)(?P<MARIADB>(CONC|MDEV|MCOL|CONCPP|CONJ|CONJS|ODBC|CONPY|R2DBC|MDBF|MXS|MDEV)\-\d+)'
+        - '(^|[-/])(?P<MARIADB>(PMM|CONC|MDEV|MCOL|CONCPP|CONJ|CONJS|ODBC|CONPY|R2DBC|MDBF|MXS)\-\d+)'
 
 
   - name: 'MariaDB Connector/J'
@@ -29,7 +29,7 @@ repos:
       keep:
         - '^(main|develop)$'
       jira:
-        - '(^|-\/)(?P<MARIADB>(CONC|MDEV|MCOL|CONCPP|CONJ|CONJS|ODBC|CONPY|R2DBC|MDBF|MXS|MDEV)\-\d+)'
+        - '(^|[-/])(?P<MARIADB>(PMM|CONC|MDEV|MCOL|CONCPP|CONJ|CONJS|ODBC|CONPY|R2DBC|MDBF|MXS)\-\d+)'
 
 
   - name: 'MariaDB Docs'
@@ -40,7 +40,7 @@ repos:
       keep:
         - '^main$'
       jira:
-        - '(^|-\/)(?P<MARIADB>(CONC|MDEV|MCOL|CONCPP|CONJ|CONJS|ODBC|CONPY|R2DBC|MDBF|MXS|MDEV)\-\d+)'
+        - '(^|[-/])(?P<MARIADB>(PMM|CONC|MDEV|MCOL|CONCPP|CONJ|CONJS|ODBC|CONPY|R2DBC|MDBF|MXS)\-\d+)'
 
 
   - name: 'MariaDB QA'
@@ -50,7 +50,7 @@ repos:
       keep:
         - '^master$'
       jira:
-        - '(^|-\/)(?P<MARIADB>(CONC|MDEV|MCOL|CONCPP|CONJ|CONJS|ODBC|CONPY|R2DBC|MDBF|MXS|MDEV)\-\d+)'
+        - '(^|[-/])(?P<MARIADB>(PMM|CONC|MDEV|MCOL|CONCPP|CONJ|CONJS|ODBC|CONPY|R2DBC|MDBF|MXS)\-\d+)'
 
 
   - name: 'MariaDB Core storage engine'
@@ -61,7 +61,7 @@ repos:
       keep:
         - '^stable-(\d{2}\.\d{2})'
       jira:
-        - '(^|-\/)(?P<MARIADB>(CONC|MDEV|MCOL|CONCPP|CONJ|CONJS|ODBC|CONPY|R2DBC|MDBF|MXS|MDEV)\-\d+)'
+        - '(^|[-/])(?P<MARIADB>(PMM|CONC|MDEV|MCOL|CONCPP|CONJ|CONJS|ODBC|CONPY|R2DBC|MDBF|MXS)\-\d+)'
 
 
   - name: 'MariaDB Connector ODBC'
@@ -72,7 +72,7 @@ repos:
         - '^(master|develop)$'
         - '^odbc\-3\.1$'
       jira:
-        - '(^|-\/)(?P<MARIADB>(CONC|MDEV|MCOL|CONCPP|CONJ|CONJS|ODBC|CONPY|R2DBC|MDBF|MXS|MDEV)\-\d+)'
+        - '(^|[-/])(?P<MARIADB>(PMM|CONC|MDEV|MCOL|CONCPP|CONJ|CONJS|ODBC|CONPY|R2DBC|MDBF|MXS)\-\d+)'
 
 
   - name: 'MaxScale'
@@ -83,4 +83,4 @@ repos:
       keep:
         - '^(2[2-4]}\.\d{2})$'
       jira:
-        - '(^|-\/)(?P<MARIADB>(CONC|MDEV|MCOL|CONCPP|CONJ|CONJS|ODBC|CONPY|R2DBC|MDBF|MXS|MDEV)\-\d+)'
+        - '(^|[-/])(?P<MARIADB>(PMM|CONC|MDEV|MCOL|CONCPP|CONJ|CONJS|ODBC|CONPY|R2DBC|MDBF|MXS)\-\d+)'

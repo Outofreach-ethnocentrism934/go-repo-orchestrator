@@ -81,18 +81,19 @@ func (m Model) viewReposPanel(width, height int) string {
 		style = panelFocusedStyle.Width(width).Height(height)
 	}
 
-	compact := width < 40
+	innerWidth := width - 4
+	compact := innerWidth < 40
 	const branchWidth = 16
 	const typeWidth = 10
-	nameWidth := max(8, width-branchWidth-typeWidth-11)
+	nameWidth := max(8, innerWidth-branchWidth-typeWidth-11)
 
 	var lines []string
-	lines = append(lines, panelTitleStyle.Width(width).Render(" РЕПОЗИТОРИИ "))
+	lines = append(lines, panelTitleStyle.Width(innerWidth).Render(" РЕПОЗИТОРИИ "))
 	if compact {
-		compactNameWidth := max(8, width-14)
-		lines = append(lines, panelHeaderStyle.Width(width).Render(fmt.Sprintf(" %-*s %-8s", compactNameWidth, "Репозиторий", "Ветка/ст")))
+		compactNameWidth := max(8, innerWidth-14)
+		lines = append(lines, panelHeaderStyle.Width(innerWidth).Render(fmt.Sprintf(" %-*s %-8s", compactNameWidth, "Репозиторий", "Ветка/ст")))
 	} else {
-		lines = append(lines, panelHeaderStyle.Width(width).Render(fmt.Sprintf(" %-*s %-*s %-*s %s", nameWidth, "Репозиторий", branchWidth, "Активная ветка", typeWidth, "Источник", "Ст")))
+		lines = append(lines, panelHeaderStyle.Width(innerWidth).Render(fmt.Sprintf(" %-*s %-*s %-*s %s", nameWidth, "Репозиторий", branchWidth, "Активная ветка", typeWidth, "Источник", "Ст")))
 	}
 
 	indices := m.visibleRepoIndices()
@@ -132,7 +133,7 @@ func (m Model) viewReposPanel(width, height int) string {
 		}
 
 		if idx == m.repoIdx {
-			rowText = selectedStyle.Width(width).Render(rowText)
+			rowText = selectedStyle.Width(innerWidth).Render(rowText)
 		}
 		lines = append(lines, rowText)
 	}
@@ -150,7 +151,8 @@ func (m Model) viewBranchesPanel(width, height int) string {
 		style = panelFocusedStyle.Width(width).Height(height)
 	}
 
-	compact := width < 58
+	innerWidth := width - 4
+	compact := innerWidth < 58
 	const dateWidth = 10
 	const jiraWidth = 17
 	const jiraStatusWidth = 20
@@ -158,13 +160,13 @@ func (m Model) viewBranchesPanel(width, height int) string {
 	const typeWidth = 2
 	const keepWidth = 2
 	const fixedCols = 2 + 2 + 1 + dateWidth + 1 + jiraWidth + 1 + jiraStatusWidth + 1 + mergeWidth + 1 + typeWidth + 1 + keepWidth
-	branchNameWidth := max(12, width-4-fixedCols)
+	branchNameWidth := max(12, innerWidth-fixedCols)
 	if compact {
-		branchNameWidth = max(10, width-18)
+		branchNameWidth = max(10, innerWidth-14)
 	}
 
 	var lines []string
-	lines = append(lines, panelTitleStyle.Width(width).Render(" ВЕТКИ "))
+	lines = append(lines, panelTitleStyle.Width(innerWidth).Render(" ВЕТКИ "))
 
 	if m.loadingSelectedRepo() {
 		lines = append(lines, fmt.Sprintf("%s Загрузка веток...", m.spinner.View()))
@@ -191,9 +193,9 @@ func (m Model) viewBranchesPanel(width, height int) string {
 
 	hdrBranch := fitCell("Ветка", branchNameWidth)
 	if compact {
-		lines = append(lines, panelHeaderStyle.Width(width).Render(fmt.Sprintf(" S %s %-9s", hdrBranch, "Слияние")))
+		lines = append(lines, panelHeaderStyle.Width(innerWidth).Render(fmt.Sprintf(" S %s %-9s", hdrBranch, "Слияние")))
 	} else {
-		lines = append(lines, panelHeaderStyle.Width(width).Render(fmt.Sprintf(" S %s %-10s %-17s %-20s %-9s %s %s", hdrBranch, "Дата", "JIRA", "Статус", "Слияние", "T", "З")))
+		lines = append(lines, panelHeaderStyle.Width(innerWidth).Render(fmt.Sprintf(" S %s %-10s %-17s %-20s %-9s %s %s", hdrBranch, "Дата", "JIRA", "Статус", "Слияние", "T", "З")))
 	}
 
 	visible := m.visibleBranches()
@@ -244,7 +246,7 @@ func (m Model) viewBranchesPanel(width, height int) string {
 		}
 
 		if isActiveRow {
-			line = selectedStyle.Width(width).Render(line)
+			line = selectedStyle.Width(innerWidth).Render(line)
 		}
 
 		lines = append(lines, line)
@@ -259,7 +261,8 @@ func (m Model) viewBranchesPanel(width, height int) string {
 
 func (m Model) viewStatsPanel(width, height int) string {
 	style := infoStyle.Width(width).Height(height)
-	contentWidth := max(12, width-6)
+	innerWidth := width - 4
+	contentWidth := max(12, innerWidth-2)
 	selectedRepo := m.selectedRepoName()
 	selectedRepoCfg, hasSelectedRepoCfg := m.cfg.RepoByName(selectedRepo)
 	selectedCount := len(m.selectedBranches(selectedRepo))
@@ -282,7 +285,7 @@ func (m Model) viewStatsPanel(width, height int) string {
 	summary := strings.Join(summaryParts, "  |  ")
 
 	lines := []string{
-		panelTitleStyle.Width(width).Render(" ИНФО  " + truncate(summary, width-9)),
+		panelTitleStyle.Width(innerWidth).Render(" ИНФО  " + truncate(summary, innerWidth-5)),
 		truncate(fmt.Sprintf("Репозиторий: %s", valueOrDash(selectedRepo)), contentWidth),
 		truncate(fmt.Sprintf("Источник: %s | Scope: %s | Скрытое: %s | Формат: .%s", valueOrDash(repoSourceLabel(selectedRepoCfg, hasSelectedRepoCfg)), m.branchScopeLabel(), onOff(m.hideProtected), m.scriptFormat), contentWidth),
 	}
@@ -298,7 +301,7 @@ func (m Model) viewStatsPanel(width, height int) string {
 	}
 
 	if stat, ok := m.selectedRepoStat(); ok {
-		lines = append(lines, "", panelHeaderStyle.Width(width).Render(" Статус Git "))
+		lines = append(lines, "", panelHeaderStyle.Width(innerWidth).Render(" Статус Git "))
 		if stat.HasError() {
 			lines = append(lines, errorStyle.Render("Ошибка доступа к репозиторию"))
 			lines = append(lines, "  "+truncate(stat.LoadError, contentWidth))
@@ -341,7 +344,7 @@ func (m Model) viewStatsPanel(width, height int) string {
 			}
 		}
 	} else {
-		lines = append(lines, "", panelHeaderStyle.Width(width).Render(" Статус Git "), mutedStyle.Render("Нет данных (ветки не загружены)"))
+		lines = append(lines, "", panelHeaderStyle.Width(innerWidth).Render(" Статус Git "), mutedStyle.Render("Нет данных (ветки не загружены)"))
 	}
 
 	if m.loadingSelectedRepo() {
@@ -351,13 +354,13 @@ func (m Model) viewStatsPanel(width, height int) string {
 
 	if m.lastGenerated != nil {
 		lines = append(lines, "")
-		lines = append(lines, panelHeaderStyle.Width(width).Render(" Последний скрипт "))
+		lines = append(lines, panelHeaderStyle.Width(innerWidth).Render(" Последний скрипт "))
 		lines = append(lines, truncate(filepath.Base(m.lastGenerated.ScriptPath), max(10, width-4)))
 	}
 
 	if m.err != nil {
 		lines = append(lines, "")
-		lines = append(lines, panelHeaderStyle.Width(width).Render(" Ошибка "))
+		lines = append(lines, panelHeaderStyle.Width(innerWidth).Render(" Ошибка "))
 		lines = append(lines, truncate(m.err.Error(), max(16, width-4)))
 	}
 
