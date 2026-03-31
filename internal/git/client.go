@@ -3,8 +3,6 @@ package git
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -21,6 +19,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 
 	"github.com/agelxnash/go-repo-orchestrator/internal/model"
+	"github.com/agelxnash/go-repo-orchestrator/internal/workdir"
 )
 
 // Client выполняет git-операции: через go-git по умолчанию и git CLI для bundle/clone/fetch-сценариев.
@@ -727,29 +726,7 @@ func (c *Client) lockForPath(path string) func() {
 }
 
 func safeManagedRepoDir(repoName, repoURL string) string {
-	hash := sha256.Sum256([]byte(repoURL))
-	hashSuffix := hex.EncodeToString(hash[:8])
-	safeName := sanitizeDirPart(repoName)
-	if safeName == "" {
-		safeName = "repo"
-	}
-
-	return safeName + "__" + hashSuffix
-}
-
-func sanitizeDirPart(s string) string {
-	b := strings.Builder{}
-	b.Grow(len(s))
-	for i := 0; i < len(s); i++ {
-		ch := s[i]
-		if (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '.' || ch == '-' || ch == '_' {
-			b.WriteByte(ch)
-			continue
-		}
-		b.WriteByte('_')
-	}
-
-	return strings.Trim(b.String(), "_")
+	return workdir.ManagedRepoDirKey(repoName, repoURL)
 }
 
 func isGitRepo(path string) bool {
