@@ -140,10 +140,7 @@ func TestGenerateDeleteScriptUsesUniqueNames(t *testing.T) {
 	var wg sync.WaitGroup
 
 	for i := 0; i < runs; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			result, err := cleaner.GenerateDeleteScript(config.RepoConfig{Name: "demo"}, repoPath, branches, model.ScriptFormatSH)
 			if err != nil {
 				errCh <- err
@@ -151,7 +148,7 @@ func TestGenerateDeleteScriptUsesUniqueNames(t *testing.T) {
 			}
 
 			paths <- result.ScriptPath
-		}()
+		})
 	}
 
 	wg.Wait()

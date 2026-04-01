@@ -128,6 +128,9 @@ func LoadFromViper(v *viper.Viper) (*Config, error) {
 		jira := &cfg.Jira[i]
 		jira.Group = strings.TrimSpace(jira.Group)
 		jira.URL = normalizeJiraBaseURL(jira.URL)
+		if err := validateJiraURL(jira.URL); err != nil {
+			return nil, fmt.Errorf("jira[%d].url: %w", i, err)
+		}
 		if jira.Group == "" {
 			continue
 		}
@@ -324,6 +327,28 @@ func validateBrowserCDPURL(raw string) error {
 	case "http", "https", "ws", "wss":
 	default:
 		return fmt.Errorf("неподдерживаемая scheme %q", parsed.Scheme)
+	}
+
+	if parsed.Host == "" {
+		return errors.New("требуется host")
+	}
+
+	return nil
+}
+
+func validateJiraURL(raw string) error {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return fmt.Errorf("разобрать jira url: %w", err)
+	}
+
+	if parsed.Scheme != "https" {
+		return fmt.Errorf("jira url должен использовать https, получено %q", parsed.Scheme)
 	}
 
 	if parsed.Host == "" {

@@ -34,7 +34,7 @@ func TestResolveRepoPathAcceptsGitWorktree(t *testing.T) {
 	runCmd(t, mainRepoPath, "git", "worktree", "add", worktreePath, "feature/worktree")
 
 	client := NewClient(5*time.Second, filepath.Join(dir, "workspace"))
-	resolved, err := client.ResolveRepoPath(context.Background(), "local", "", worktreePath)
+	resolved, err := client.ResolveRepoPath(t.Context(), "local", "", worktreePath)
 	if err != nil {
 		t.Fatalf("resolve worktree repo path: %v", err)
 	}

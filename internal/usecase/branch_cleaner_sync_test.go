@@ -187,7 +187,7 @@ func TestLoadRepoBranchesOpensourceClonesMissingPathViaUpdateFlow(t *testing.T) 
 		},
 	}
 
-	rb, err := cleaner.LoadRepoBranches(context.Background(), repo)
+	rb, err := cleaner.LoadRepoBranches(t.Context(), repo)
 	if err != nil {
 		t.Fatalf("expected opensource update success, got error: %v", err)
 	}
