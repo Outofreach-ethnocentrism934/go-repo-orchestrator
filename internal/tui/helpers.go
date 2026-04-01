@@ -3,6 +3,7 @@ package tui
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -83,8 +84,15 @@ func (m Model) visibleBranches() []model.BranchInfo {
 		visible = append(visible, branch)
 	}
 
-	sort.SliceStable(visible, func(i, j int) bool {
-		return m.lessBranch(visible[i], visible[j])
+	slices.SortStableFunc(visible, func(a, b model.BranchInfo) int {
+		if m.lessBranch(a, b) {
+			return -1
+		}
+		if m.lessBranch(b, a) {
+			return 1
+		}
+
+		return 0
 	})
 
 	return visible
@@ -106,10 +114,17 @@ func (m Model) visibleRepoIndices() []int {
 		indices = append(indices, i)
 	}
 
-	sort.SliceStable(indices, func(i, j int) bool {
-		left := m.cfg.Repos[indices[i]]
-		right := m.cfg.Repos[indices[j]]
-		return m.lessRepo(left, right)
+	slices.SortStableFunc(indices, func(i, j int) int {
+		left := m.cfg.Repos[i]
+		right := m.cfg.Repos[j]
+		if m.lessRepo(left, right) {
+			return -1
+		}
+		if m.lessRepo(right, left) {
+			return 1
+		}
+
+		return 0
 	})
 
 	return indices
@@ -550,18 +565,4 @@ func fitCell(s string, width int) string {
 	}
 	trimmed := truncate(s, width)
 	return fmt.Sprintf("%-*s", width, trimmed)
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

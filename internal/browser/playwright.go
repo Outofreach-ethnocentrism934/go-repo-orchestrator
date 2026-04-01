@@ -501,7 +501,7 @@ func probeHTTPCDPVersion(parsed *url.URL) cdpPreflightResult {
 	}
 
 	probeURL := &url.URL{Scheme: parsed.Scheme, Host: parsed.Host, Path: "/json/version"}
-	req, err := http.NewRequest(http.MethodGet, probeURL.String(), nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, probeURL.String(), nil)
 	if err != nil {
 		return cdpPreflightResult{step: "http_probe", class: "request_build_failed", message: "unable to create cdp probe request"}
 	}

@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/agelxnash/go-repo-orchestrator/internal/workdir"
@@ -334,13 +335,14 @@ func validateBrowserCDPURL(raw string) error {
 
 // RepoByName ищет репозиторий по имени из конфига.
 func (c *Config) RepoByName(name string) (RepoConfig, bool) {
-	for _, r := range c.Repos {
-		if r.Name == name {
-			return r, true
-		}
+	idx := slices.IndexFunc(c.Repos, func(r RepoConfig) bool {
+		return r.Name == name
+	})
+	if idx < 0 {
+		return RepoConfig{}, false
 	}
 
-	return RepoConfig{}, false
+	return c.Repos[idx], true
 }
 
 // PlaywrightEnabled возвращает true, если хотя бы одна jira-группа требует playwright runtime.
@@ -349,13 +351,9 @@ func (c *Config) PlaywrightEnabled() bool {
 		return false
 	}
 
-	for _, jira := range c.Jira {
-		if jira.Playwright {
-			return true
-		}
-	}
-
-	return false
+	return slices.ContainsFunc(c.Jira, func(jira JiraConfig) bool {
+		return jira.Playwright
+	})
 }
 
 // IsProtected проверяет, попадает ли ветка под branch.keep.

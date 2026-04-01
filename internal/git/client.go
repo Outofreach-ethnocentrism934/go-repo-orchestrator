@@ -8,7 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -334,10 +334,10 @@ func (c *Client) ListBranches(ctx context.Context, repoPath string) ([]model.Bra
 		return nil, err
 	}
 
-	result := append(localBranches, remoteBranches...)
+	result := slices.Concat(localBranches, remoteBranches)
 
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].LastCommitAt.After(result[j].LastCommitAt)
+	slices.SortFunc(result, func(a, b model.BranchInfo) int {
+		return b.LastCommitAt.Compare(a.LastCommitAt)
 	})
 
 	return result, nil
