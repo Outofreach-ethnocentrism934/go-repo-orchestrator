@@ -31,8 +31,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm install @commitlint/config-conventional
+
       - name: Validate commit messages
         uses: wagoid/commitlint-github-action@v6
         with:
-          configFile: commitlint.config.mjs
+          configFile: ./commitlint.config.mjs
           helpURL: https://www.conventionalcommits.org/en/v1.0.0/
+          ignoreDependabot: 'true'
+        env:
+          NODE_PATH: ${{ github.workspace }}/node_modules
