@@ -1,59 +1,81 @@
-name: "Фича"
-description: "Предложение новой функциональности или улучшение существующей"
-title: "feat: "
-labels: ["enhancement"]
+name: "Ошибка"
+description: "Сообщить о некорректном поведении, регрессии или проблеме UX"
+title: "bug: "
+labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        ## Фича-задача
-        Заполните поля ниже. Чем конкретнее описание — тем быстрее задача попадёт в работу.
+        ## Баг-репорт
+        Заполните поля ниже. Чем точнее шаги воспроизведения и ожидаемое поведение, тем быстрее проблему получится локализовать.
 
   - type: textarea
     id: tldr
     attributes:
       label: TL;DR
-      description: "Краткая суть предложения в 1-2 предложениях"
-      placeholder: "Что нужно сделать и зачем"
+      description: "Краткая суть проблемы в 1-2 предложениях"
+      placeholder: "Что ломается, где и при каких условиях"
     validations:
       required: true
 
   - type: textarea
     id: problem
     attributes:
-      label: Проблема / текущая боль
-      description: "Что сейчас работает неудобно, отсутствует или вызывает трудности"
-      placeholder: "Опишите текущую ситуацию и почему она проблематична"
+      label: Проблема / симптомы
+      description: "Что именно наблюдает пользователь сейчас"
+      placeholder: "Опишите симптом, сообщение об ошибке, неверное поведение или UX-сбой"
     validations:
       required: true
 
   - type: textarea
-    id: solution
+    id: steps
     attributes:
-      label: Предлагаемое решение
-      description: "Как вы видите реализацию — на уровне поведения, не кода"
-      placeholder: "Ожидаемое поведение системы после внедрения"
+      label: Шаги воспроизведения
+      description: "Минимальная последовательность действий для воспроизведения"
+      placeholder: |
+        1. Открыть ...
+        2. Выбрать ...
+        3. Нажать ...
+        4. Получить ошибку ...
     validations:
       required: true
 
   - type: textarea
-    id: value
+    id: expected
     attributes:
-      label: Пользовательская ценность
-      description: "Какую пользу получит пользователь / проект от этой фичи"
-      placeholder: "Кому это нужно и почему это важно"
+      label: Ожидаемое поведение
+      description: "Что система должна была сделать вместо этого"
+      placeholder: "Опишите корректный ожидаемый результат"
     validations:
       required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Фактическое поведение
+      description: "Что произошло по факту"
+      placeholder: "Опишите фактический результат и последствия"
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Контекст / окружение
+      description: "Версия приложения, ОС, конфиг, тип репозитория, особые условия"
+      placeholder: "Например: Linux, локальный path-repo, nested repo, config.yaml ..."
+    validations:
+      required: false
 
   - type: textarea
     id: acceptance
     attributes:
       label: Acceptance Criteria
-      description: "Конкретные критерии приёмки — как проверить, что фича работает"
+      description: "Как проверить, что баг исправлен и не регрессировал"
       placeholder: |
-        - [ ] Критерий 1
-        - [ ] Критерий 2
-        - [ ] Критерий 3
+        - [ ] Сценарий воспроизводится на старой версии
+        - [ ] После исправления сценарий работает корректно
+        - [ ] Смежный сценарий не сломан
     validations:
       required: true
 
@@ -61,8 +83,8 @@ body:
     id: technical-notes
     attributes:
       label: Technical Notes
-      description: "Какие модули/пакеты затрагивает, есть ли зависимости от других задач"
-      placeholder: "Например: cmd/, internal/jira/, internal/git/"
+      description: "Гипотезы о причине, затронутые пакеты/модули, ссылки на код"
+      placeholder: "Например: internal/git/, internal/config/, ResolveRepoPath()"
     validations:
       required: false
 
@@ -70,8 +92,8 @@ body:
     id: out-of-scope
     attributes:
       label: Out of Scope
-      description: "Что явно НЕ входит в эту задачу"
-      placeholder: "Что остаётся за рамками текущей реализации"
+      description: "Что явно не входит в исправление этой ошибки"
+      placeholder: "Что не нужно менять в рамках этой задачи"
     validations:
       required: false
 
@@ -79,8 +101,8 @@ body:
     id: risks
     attributes:
       label: Risks
-      description: "Известные риски, edge-cases, потенциальные проблемы"
-      placeholder: "Что может пойти не так"
+      description: "Риски фикса, edge-cases, потенциальные регрессии"
+      placeholder: "Что можно случайно сломать рядом"
     validations:
       required: false
 
@@ -88,11 +110,11 @@ body:
     id: dod
     attributes:
       label: Definition of Done / Verification
-      description: "Как окончательно убедиться, что задача завершена"
+      description: "Финальная проверка перед закрытием задачи"
       placeholder: |
-        - [ ] Код покрыт тестами
+        - [ ] Добавлены/обновлены тесты
         - [ ] Проходит `make check`
-        - [ ] Документация обновлена
-        - [ ] Ручная проверка сценария
+        - [ ] Ручной сценарий подтвержден
+        - [ ] Документация обновлена при необходимости
     validations:
       required: true
