@@ -1338,6 +1338,7 @@ func TestRemoteScopeViewportStaysVisibleAfterScrollDownAndUp(t *testing.T) {
 			current := caseModel.currentBranch()
 			if current == nil {
 				t.Fatalf("%s: expected current branch while scrolling", name)
+				return // unreachable, satisfies staticcheck SA5011
 			}
 			panel := caseModel.viewBranchesPanel(120, branchesHeight)
 			display := caseModel.branchDisplayName(*current)
