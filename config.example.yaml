@@ -1,9 +1,44 @@
 browser:
+  # CDP URL для подключения к уже запущенному Chromium (только при playwright: true)
   cdp_url: 'http://127.0.0.1:9222'
 
+# Настройки Jira. Поддерживаются несколько инстансов.
+# Транспорт:
+#   playwright: true  -> Browser transport (ручной вход через браузер для SSO)
+#   playwright: false -> HTTP transport (REST API)
+# Авторизация HTTP:
+#   token              -> Bearer auth (Authorization: Bearer <token>)
+#   login.username/password -> Basic Auth (если token пуст)
+# type: вспомогательное поле, не влияет на runtime-логику.
+#
+# Принцип связи веток с Jira-группами:
+#   - jira[].group — идентификатор Jira-инстанса (например, "MARIADB").
+#   - repos[].branch.jira — regex с named-group, имя которого МОЖЕТ совпадать с jira.group.
+#   - Если имена совпадают, ключ тикета из ветки маппится на эту Jira-группу.
+#   - Если использовать универсальное имя (?P<JIRA>...), ключ ищется во всех группах (fallback).
 jira:
   - group: 'MARIADB'
     url: https://jira.mariadb.org/
+
+# Примеры конфигурации Jira (раскомментируйте нужный):
+
+# SSO/Playwright (браузерный вход через CDP):
+#   - group: "MYPROJ"
+#     url: "https://company.atlassian.net"
+#     playwright: true
+#   # Требуется запущенный Chromium с CDP (browser.cdp_url)
+
+# HTTP + Bearer токен:
+#   - group: "MYPROJ"
+#     url: "https://company.atlassian.net"
+#     token: "your_api_token_here"
+
+# HTTP + Basic Auth:
+#   - group: "MYPROJ"
+#     url: "https://company.atlassian.net"
+#     login:
+#       username: "user@example.com"
+#       password: "secret"
 
 repos:
   - name: 'Repo orchestrator'
@@ -19,6 +54,7 @@ repos:
       keep:
         - '^(3\.[1-4])'
       jira:
+        # Named-group "MARIADB" соответствует jira.group: 'MARIADB' (см. блок jira выше)
         - '(^|[-/])(?P<MARIADB>(PMM|CONC|MDEV|MCOL|CONCPP|CONJ|CONJS|ODBC|CONPY|R2DBC|MDBF|MXS)\-\d+)'
 
 

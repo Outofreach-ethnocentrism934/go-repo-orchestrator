@@ -3,11 +3,11 @@
   <p><b>Локальная TUI-утилита для оркестрации репозиториев, аудита задач и безопасной работы с Git-ветками</b></p>
   
   [![Go version](https://img.shields.io/github/go-mod/go-version/AgelxNash/go-repo-orchestrator)](https://github.com/AgelxNash/go-repo-orchestrator/blob/main/go.mod)
+  [![Latest release](https://img.shields.io/github/v/release/AgelxNash/go-repo-orchestrator)](https://github.com/AgelxNash/go-repo-orchestrator/releases)
   [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-fe5196.svg)](https://www.conventionalcommits.org/en/v1.0.0/)
   ![Go Report Card](https://goreportcard.com/badge/github.com/AgelxNash/go-repo-orchestrator)
   [![CI](https://github.com/AgelxNash/go-repo-orchestrator/actions/workflows/ci.yml/badge.svg)](https://github.com/AgelxNash/go-repo-orchestrator/actions/workflows/ci.yml)
   [![Release workflow](https://github.com/AgelxNash/go-repo-orchestrator/actions/workflows/release.yaml/badge.svg)](https://github.com/AgelxNash/go-repo-orchestrator/actions/workflows/release.yaml)
-  [![Latest release](https://img.shields.io/github/v/release/AgelxNash/go-repo-orchestrator)](https://github.com/AgelxNash/go-repo-orchestrator/releases)
   [![Go Reference](https://pkg.go.dev/badge/github.com/AgelxNash/go-repo-orchestrator.svg)](https://pkg.go.dev/github.com/AgelxNash/go-repo-orchestrator)
   [![License](https://img.shields.io/github/license/AgelxNash/go-repo-orchestrator)](https://github.com/AgelxNash/go-repo-orchestrator/blob/main/LICENSE)
 </div>
@@ -169,10 +169,165 @@ go install github.com/agelxnash/go-repo-orchestrator/cmd/go-repo-orchestrator@la
 - `repos[].name`, `repos[].url`, `repos[].path` — базовые настройки репозитория (поддержка `url`, `path`, `url+path`).
 - `repos[].branch.keep` — regex-выражение для системных/защищенных веток.
 - `repos[].branch.jira` — regex-выражение для извлечения Jira ключа (например, `[A-Z]+-\d+`).
-- `jira[]` — настройки интеграции с Jira (`group`, `url`, `playwright`, `type`, `token`/`login`).
-- `browser.cdp_url` — подключение к внешнему Chromium через CDP.
+- `jira[]` — настройки интеграции с Jira:
+  - `group` — группа/проект в Jira (например, `"MYPROJ"`).
+  - `url` — базовый URL Jira (например, `"https://company.atlassian.net"`).
+  - `playwright` — булево: `true` включает браузерный транспорт через CDP/Chromium; `false` (по умолчанию) использует HTTP-транспорт.
+  - `token` — API-токен для Bearer-аутентификации (если указан, добавляется заголовок `Authorization: Bearer <token>`).
+  - `login.username` / `login.password` — учетные данные для Basic Auth (используются, если оба поля заданы и `token` пуст).
+  - `type` — вспомогательное поле конфигурации, не влияющее на runtime-логику (может быть использовано для документирования или будущих расширений).
+- `browser.cdp_url` — URL для подключения к уже запущенному Chromium через CDP (например, `"http://localhost:9222"`). Используется при `playwright: true`.
+
+### Связь Jira-групп с ветками
+
+Оркестратор поддерживает несколько Jira-инстансов одновременно. Чтобы определить, к какой Jira-группе относится та или иная ветка, используется механизм named capture groups в regex из `repos[].branch.jira`.
+
+**Как это работает:**
+
+- `jira[].group` — идентификатор Jira-группы/инстанса (например, `"MARIADB"`, `"SIMPLEWINE"`).
+- В regex для `branch.jira` можно определить named-group, имя которого **совпадает** с `jira.group`. Когда ключ тикета извлекается из имени ветки, оркестратор находит соответствующую Jira-группу по имени named-group.
+- Если в regex используется универсальное имя `(?P<JIRA>...)`, ключ тикета будет искаться во **всех** настроенных Jira-группах (fallback-вариант).
+
+**Примеры:**
+
+```yaml
+# Прямой mapping: named-group "SIMPLEWINE" -> jira.group: "SIMPLEWINE"
+jira:
+  - group: "SIMPLEWINE"
+    url: "https://simplewine.atlassian.net"
+    token: "..."
+repos:
+  - name: "My Service"
+    branch:
+      jira:
+        - '(?P<SIMPLEWINE>SW-\d+)'  # Ключ "SW-123" найдет группу SIMPLEWINE
+```
+
+```yaml
+# Fallback: универсальный named-group "JIRA" работает с любой группой
+jira:
+  - group: "PROJ-A"
+    url: "https://proj-a.atlassian.net"
+  - group: "PROJ-B"
+    url: "https://proj-b.atlassian.net"
+repos:
+  - name: "Shared Lib"
+    branch:
+      jira:
+        - '(?P<JIRA>[A-Z]+-\d+)'  # Ключ "PROJ-123" проверит обе группы
+```
+
+**Почему `generate` не заполняет эти поля автоматически:**
+
+Команда `generate` создает базовый шаблон конфигурации, но не может угадать:
+- Какие Jira-инстансы использует ваша команда (URL, токены, групповые имена).
+- Как именно вы именуете ветки (префиксы, разделители, форматы ключей).
+- Какие named-group имена предпочтительны для вашего случая.
+
+Эти параметры требуют ручной настройки под конкретную организацию и workflow.
 
 *Можно переопределять конфигурацию через переменные окружения с префиксом `GBC_` (например, `GBC_STATE_DIR`).*
+
+### Авторизация Jira
+
+Интеграция с Jira поддерживает два транспортных режима, управляемых полем `playwright`:
+
+- **Browser transport** (`playwright: true`) — для SSO/сложных сценариев с Cloudflare/Captchas. Пользователь авторизуется вручную в открываемом браузере/Chromium. После истечения SSO-сессии требуется повторный вход. Рекомендуется использовать `browser.cdp_url` для подключения к уже запущенному CDP-сеансу.
+- **HTTP transport** (`playwright: false` или отсутствие поля) — стандартные HTTP-запросы к Jira REST API.
+
+Для аутентификации в HTTP-режиме используются:
+- **Bearer auth** — если задано поле `token`, добавляется заголовок `Authorization: Bearer <token>`.
+- **Basic auth** — если заданы `login.username` и `login.password` (и `token` пуст), используется базовая аутентификация.
+
+Поле `type` является вспомогательным и не влияет на runtime-логику (может использоваться для документирования).
+
+**Fallback и подсказки:** При недоступном browser runtime (например, отсутствует Chromium) для групп с `playwright: true` приложение автоматически делает HTTP fallback. Если для Jira требуется авторизация через браузер, TUI покажет соответствующую подсказку с инструкцией.
+
+#### Примеры конфигурации
+
+**SSO/Playwright (с CDP):**
+
+```yaml
+jira:
+  - group: "MYPROJ"
+    url: "https://company.atlassian.net"
+    playwright: true
+
+browser:
+  cdp_url: "http://localhost:9222"
+```
+
+**HTTP с Bearer-токеном:**
+
+```yaml
+jira:
+  - group: "MYPROJ"
+    url: "https://company.atlassian.net"
+    token: "your_api_token_here"
+```
+
+**HTTP с Basic Auth:**
+
+```yaml
+jira:
+  - group: "MYPROJ"
+    url: "https://company.atlassian.net"
+    login:
+      username: "user@example.com"
+      password: "secret"
+```
+
+#### Как запустить браузер с CDP
+
+При использовании `playwright: true` оркестратор подключается к уже запущенному браузеру через CDP. Запустите Chromium/Chrome в отдельном сеансе с включённым remote debugging:
+
+**Linux/macOS:**
+
+```bash
+# Создаём отдельный профиль, чтобы не мешать основному браузеру
+PROFILE_DIR="$HOME/.config/go-repo-orchestrator-chrome-profile"
+
+# Запускаем Chrome/Chromium с CDP
+google-chrome \
+  --remote-debugging-port=9222 \
+  --remote-debugging-address=127.0.0.1 \
+  --user-data-dir="$PROFILE_DIR" \
+  --no-first-run \
+  --no-default-browser-check \
+  "https://company.atlassian.net" &
+```
+
+Или для `chromium`:
+
+```bash
+chromium-browser \
+  --remote-debugging-port=9222 \
+  --remote-debugging-address=127.0.0.1 \
+  --user-data-dir="$HOME/.config/go-repo-orchestrator-chrome-profile" \
+  --no-first-run \
+  --no-default-browser-check \
+  "https://company.atlassian.net" &
+```
+
+**Windows (PowerShell):**
+
+```powershell
+# Отдельный профиль
+$env:PROFILE_DIR = "$env:APPDATA\go-repo-orchestrator-chrome-profile"
+
+# Запуск Chrome (путь может отличаться в зависимости от системы)
+& "C:\Program Files\Google\Chrome\Application\chrome.exe" `
+  --remote-debugging-port=9222 `
+  --remote-debugging-address=127.0.0.1 `
+  --user-data-dir="$env:PROFILE_DIR" `
+  --no-first-run `
+  --no-default-browser-check `
+  "https://company.atlassian.net"
+```
+
+**Зачем отдельный `--user-data-dir`:** чтобы запущенный для CDP браузер не конфликтовал с вашим основным профилем Chrome/Chromium (расширения, история, куки). После завершения работы с оркестратором можно безопасно удалить эту папку.
+
+Убедитесь, что `browser.cdp_url` в конфиге указывает на `http://localhost:9222` (значение по умолчанию).
 
 ### Каталог состояния
 
