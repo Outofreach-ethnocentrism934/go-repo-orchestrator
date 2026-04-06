@@ -438,6 +438,16 @@ func (m *Model) invertVisibleBranchSelection(repoName string) int {
 	return toggled
 }
 
+func (m *Model) applyAutocheckSelection(repoName string, branches []model.BranchInfo) {
+	selected := m.ensureRepoSelection(repoName)
+	for _, branch := range branches {
+		if branch.Autocheck && !branch.Protected {
+			key := m.branchSelectionKey(branch)
+			selected[key] = true
+		}
+	}
+}
+
 func onOff(v bool) string {
 	if v {
 		return "вкл"

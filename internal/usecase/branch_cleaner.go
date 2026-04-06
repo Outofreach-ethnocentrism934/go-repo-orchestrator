@@ -162,6 +162,7 @@ func (c *Cleaner) LoadRepoBranches(ctx context.Context, repo config.RepoConfig) 
 		branch.BaseBranch = baseBranch
 		branch.Protected = !allowed
 		branch.Reason = reason
+		branch.Autocheck = !branch.Protected && branch.Name != currentBranch && repo.MatchesAutocheck(branch.Name)
 		filtered = append(filtered, branch)
 	}
 

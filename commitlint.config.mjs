@@ -5,7 +5,11 @@ export default {
     (message) => message.includes('CodeRabbit'),
   ],
   rules: {
-    // Disable max line length for the commit body because bots and URLs often exceed 100 chars
+    // Максимальная длина заголовка коммита: 100 символов
+    // Синхронизировано с .commitlint.yml (Go commitlint)
+    'header-max-length': [2, 'always', 100],
+
+    // Отключаем ограничение длины body (боты и URL часто превышают 100)
     'body-max-line-length': [0],
   }
 };

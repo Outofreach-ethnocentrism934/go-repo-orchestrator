@@ -1042,3 +1042,211 @@ func TestLoadRepoBranchesProtectsAndSkipsRemoteDefaultBranch(t *testing.T) {
 		t.Fatalf("unexpected generate script error: %v", err)
 	}
 }
+
+func TestLoadRepoBranchesSetsAutocheckForMatchingBranches(t *testing.T) {
+	t.Parallel()
+
+	git := &fakeGitClient{
+		resolveRepoPathFn: func(_ context.Context, repoName, repoURL, localPath string) (string, error) {
+			return "/tmp/demo", nil
+		},
+		listBranchesFn: func(_ context.Context, repoPath string) ([]model.BranchInfo, error) {
+			return []model.BranchInfo{
+				{Name: "feature/task-1", QualifiedName: "feature/task-1", Scope: model.BranchScopeLocal},
+				{Name: "bugfix/fix-2", QualifiedName: "bugfix/fix-2", Scope: model.BranchScopeLocal},
+				{Name: "hotfix/urgent", QualifiedName: "hotfix/urgent", Scope: model.BranchScopeLocal},
+			}, nil
+		},
+		currentBranchFn: func(_ context.Context, repoPath string) (string, error) {
+			return "main", nil
+		},
+		detectDefaultBranchFn: func(_ context.Context, repoPath, currentBranch string) (string, error) {
+			return "main", nil
+		},
+	}
+
+	v := viper.New()
+	v.Set("repos", []map[string]any{{
+		"name": "demo",
+		"path": "/tmp/demo",
+		"branch": map[string]any{
+			"autocheck": []string{"^feature/.*$", "^bugfix/.*$"},
+		},
+	}})
+
+	cfg, err := config.LoadFromViper(v)
+	if err != nil {
+		t.Fatalf("load config from viper: %v", err)
+	}
+
+	cleaner := NewCleaner(git)
+	rb, err := cleaner.LoadRepoBranches(context.Background(), cfg.Repos[0])
+	if err != nil {
+		t.Fatalf("load repo branches: %v", err)
+	}
+
+	byName := make(map[string]model.BranchInfo, len(rb.Branches))
+	for _, b := range rb.Branches {
+		byName[b.Name] = b
+	}
+
+	if !byName["feature/task-1"].Autocheck {
+		t.Fatal("feature/task-1 must be autocheck-selected")
+	}
+	if !byName["bugfix/fix-2"].Autocheck {
+		t.Fatal("bugfix/fix-2 must be autocheck-selected")
+	}
+	if byName["hotfix/urgent"].Autocheck {
+		t.Fatal("hotfix/urgent must not be autocheck-selected (no regex match)")
+	}
+}
+
+func TestLoadRepoBranchesAutocheckSkipsProtectedBranches(t *testing.T) {
+	t.Parallel()
+
+	git := &fakeGitClient{
+		resolveRepoPathFn: func(_ context.Context, repoName, repoURL, localPath string) (string, error) {
+			return "/tmp/demo", nil
+		},
+		listBranchesFn: func(_ context.Context, repoPath string) ([]model.BranchInfo, error) {
+			return []model.BranchInfo{
+				{Name: "feature/task", QualifiedName: "feature/task", Scope: model.BranchScopeLocal},
+				{Name: "release/1.0", QualifiedName: "release/1.0", Scope: model.BranchScopeLocal},
+			}, nil
+		},
+		currentBranchFn: func(_ context.Context, repoPath string) (string, error) {
+			return "main", nil
+		},
+		detectDefaultBranchFn: func(_ context.Context, repoPath, currentBranch string) (string, error) {
+			return "main", nil
+		},
+	}
+
+	v := viper.New()
+	v.Set("repos", []map[string]any{{
+		"name": "demo",
+		"path": "/tmp/demo",
+		"branch": map[string]any{
+			"keep":      []string{"^release/.*$"},
+			"autocheck": []string{"^feature/.*$", "^release/.*$"},
+		},
+	}})
+
+	cfg, err := config.LoadFromViper(v)
+	if err != nil {
+		t.Fatalf("load config from viper: %v", err)
+	}
+
+	cleaner := NewCleaner(git)
+	rb, err := cleaner.LoadRepoBranches(context.Background(), cfg.Repos[0])
+	if err != nil {
+		t.Fatalf("load repo branches: %v", err)
+	}
+
+	byName := make(map[string]model.BranchInfo, len(rb.Branches))
+	for _, b := range rb.Branches {
+		byName[b.Name] = b
+	}
+
+	// feature/task: matches autocheck, not protected -> autocheck=true
+	if !byName["feature/task"].Autocheck {
+		t.Fatal("feature/task must be autocheck-selected")
+	}
+	// release/1.0: matches autocheck regex BUT protected by keep -> autocheck=false
+	if byName["release/1.0"].Autocheck {
+		t.Fatal("release/1.0 must not be autocheck-selected (protected by keep)")
+	}
+	if !byName["release/1.0"].Protected {
+		t.Fatal("release/1.0 must be protected")
+	}
+}
+
+func TestLoadRepoBranchesAutocheckSkipsCurrentBranch(t *testing.T) {
+	t.Parallel()
+
+	git := &fakeGitClient{
+		resolveRepoPathFn: func(_ context.Context, repoName, repoURL, localPath string) (string, error) {
+			return "/tmp/demo", nil
+		},
+		listBranchesFn: func(_ context.Context, repoPath string) ([]model.BranchInfo, error) {
+			return []model.BranchInfo{
+				{Name: "feature/active-work", QualifiedName: "feature/active-work", Scope: model.BranchScopeLocal},
+				{Name: "feature/other", QualifiedName: "feature/other", Scope: model.BranchScopeLocal},
+			}, nil
+		},
+		currentBranchFn: func(_ context.Context, repoPath string) (string, error) {
+			return "feature/active-work", nil
+		},
+		detectDefaultBranchFn: func(_ context.Context, repoPath, currentBranch string) (string, error) {
+			return "main", nil
+		},
+	}
+
+	v := viper.New()
+	v.Set("repos", []map[string]any{{
+		"name": "demo",
+		"path": "/tmp/demo",
+		"branch": map[string]any{
+			"autocheck": []string{"^feature/.*$"},
+		},
+	}})
+
+	cfg, err := config.LoadFromViper(v)
+	if err != nil {
+		t.Fatalf("load config from viper: %v", err)
+	}
+
+	cleaner := NewCleaner(git)
+	rb, err := cleaner.LoadRepoBranches(context.Background(), cfg.Repos[0])
+	if err != nil {
+		t.Fatalf("load repo branches: %v", err)
+	}
+
+	byName := make(map[string]model.BranchInfo, len(rb.Branches))
+	for _, b := range rb.Branches {
+		byName[b.Name] = b
+	}
+
+	// Current branch must NOT be autocheck-selected even if it matches regex
+	if byName["feature/active-work"].Autocheck {
+		t.Fatal("current branch must not be autocheck-selected")
+	}
+	// Other matching branch must be autocheck-selected
+	if !byName["feature/other"].Autocheck {
+		t.Fatal("feature/other must be autocheck-selected")
+	}
+}
+
+func TestLoadRepoBranchesAutocheckIsNoOpWhenEmpty(t *testing.T) {
+	t.Parallel()
+
+	git := &fakeGitClient{
+		resolveRepoPathFn: func(_ context.Context, repoName, repoURL, localPath string) (string, error) {
+			return "/tmp/demo", nil
+		},
+		listBranchesFn: func(_ context.Context, repoPath string) ([]model.BranchInfo, error) {
+			return []model.BranchInfo{
+				{Name: "feature/task", QualifiedName: "feature/task", Scope: model.BranchScopeLocal},
+			}, nil
+		},
+		currentBranchFn: func(_ context.Context, repoPath string) (string, error) {
+			return "main", nil
+		},
+		detectDefaultBranchFn: func(_ context.Context, repoPath, currentBranch string) (string, error) {
+			return "main", nil
+		},
+	}
+
+	repo := config.RepoConfig{Name: "demo", Path: "/tmp/demo"}
+	// No autocheck configured
+
+	cleaner := NewCleaner(git)
+	rb, err := cleaner.LoadRepoBranches(context.Background(), repo)
+	if err != nil {
+		t.Fatalf("load repo branches: %v", err)
+	}
+
+	if rb.Branches[0].Autocheck {
+		t.Fatal("branch must not be autocheck-selected when autocheck is empty")
+	}
+}

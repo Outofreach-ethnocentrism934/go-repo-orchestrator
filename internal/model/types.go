@@ -58,6 +58,7 @@ type BranchInfo struct {
 	MergeStatus   MergeStatus
 	Protected     bool
 	Reason        string
+	Autocheck     bool
 }
 
 type JiraStatusState string

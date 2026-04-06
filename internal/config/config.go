@@ -37,8 +37,9 @@ type RepoConfig struct {
 	Path   string `yaml:"path" mapstructure:"path"`
 	Branch Branch `yaml:"branch" mapstructure:"branch"`
 
-	keep []*compiledPattern
-	jira []*compiledPattern
+	keep      []*compiledPattern
+	jira      []*compiledPattern
+	autocheck []*compiledPattern
 
 	jiraGroups map[string]JiraConfig
 }
@@ -48,6 +49,7 @@ type Branch struct {
 	Autoswitch string   `yaml:"autoswitch,omitempty" mapstructure:"autoswitch"`
 	Keep       []string `yaml:"keep" mapstructure:"keep"`
 	Jira       []string `yaml:"jira" mapstructure:"jira"`
+	Autocheck  []string `yaml:"autocheck" mapstructure:"autocheck"`
 }
 
 // JiraConfig парсит верхнеуровневый раздел jira интеграций.
@@ -189,6 +191,11 @@ func LoadFromViper(v *viper.Viper) (*Config, error) {
 		repo.jira, err = compilePatterns(repo.Branch.Jira)
 		if err != nil {
 			return nil, fmt.Errorf("repo[%s]: branch.jira: %w", repo.Name, err)
+		}
+
+		repo.autocheck, err = compilePatterns(repo.Branch.Autocheck)
+		if err != nil {
+			return nil, fmt.Errorf("repo[%s]: branch.autocheck: %w", repo.Name, err)
 		}
 
 		repo.jiraGroups = cfg.jiraByGroup
@@ -400,6 +407,17 @@ func (r RepoConfig) ProtectedReason(branch string) (string, bool) {
 	}
 
 	return "", false
+}
+
+// MatchesAutocheck проверяет, совпадает ли имя ветки с любым из branch.autocheck правил.
+// Возвращает false при пустом autocheck (no-op).
+func (r RepoConfig) MatchesAutocheck(branch string) bool {
+	for _, p := range r.autocheck {
+		if p.re.MatchString(branch) {
+			return true
+		}
+	}
+	return false
 }
 
 // ExtractJiraKey пытается извлечь Jira key из ветки по repo.jira regex.
