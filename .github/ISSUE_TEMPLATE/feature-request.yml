@@ -1,0 +1,98 @@
+name: "Фича"
+description: "Предложение новой функциональности или улучшение существующей"
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Фича-задача
+        Заполните поля ниже. Чем конкретнее описание — тем быстрее задача попадёт в работу.
+
+  - type: textarea
+    id: tldr
+    attributes:
+      label: TL;DR
+      description: "Краткая суть предложения в 1-2 предложениях"
+      placeholder: "Что нужно сделать и зачем"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Проблема / текущая боль
+      description: "Что сейчас работает неудобно, отсутствует или вызывает трудности"
+      placeholder: "Опишите текущую ситуацию и почему она проблематична"
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Предлагаемое решение
+      description: "Как вы видите реализацию — на уровне поведения, не кода"
+      placeholder: "Ожидаемое поведение системы после внедрения"
+    validations:
+      required: true
+
+  - type: textarea
+    id: value
+    attributes:
+      label: Пользовательская ценность
+      description: "Какую пользу получит пользователь / проект от этой фичи"
+      placeholder: "Кому это нужно и почему это важно"
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: "Конкретные критерии приёмки — как проверить, что фича работает"
+      placeholder: |
+        - [ ] Критерий 1
+        - [ ] Критерий 2
+        - [ ] Критерий 3
+    validations:
+      required: true
+
+  - type: textarea
+    id: technical-notes
+    attributes:
+      label: Technical Notes
+      description: "Какие модули/пакеты затрагивает, есть ли зависимости от других задач"
+      placeholder: "Например: cmd/, internal/jira/, internal/git/"
+    validations:
+      required: false
+
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of Scope
+      description: "Что явно НЕ входит в эту задачу"
+      placeholder: "Что остаётся за рамками текущей реализации"
+    validations:
+      required: false
+
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks
+      description: "Известные риски, edge-cases, потенциальные проблемы"
+      placeholder: "Что может пойти не так"
+    validations:
+      required: false
+
+  - type: textarea
+    id: dod
+    attributes:
+      label: Definition of Done / Verification
+      description: "Как окончательно убедиться, что задача завершена"
+      placeholder: |
+        - [ ] Код покрыт тестами
+        - [ ] Проходит `make check`
+        - [ ] Документация обновлена
+        - [ ] Ручная проверка сценария
+    validations:
+      required: true
