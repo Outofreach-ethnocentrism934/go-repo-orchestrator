@@ -2105,3 +2105,39 @@ func TestAutocheckSelectionIsIdempotent(t *testing.T) {
 		t.Fatal("expected feature/task to remain selected")
 	}
 }
+
+func TestManualOverridePersistsAfterRefresh(t *testing.T) {
+	m := NewModel(&config.Config{
+		Repos: []config.RepoConfig{{Name: "repo-a", Path: "/tmp/repo-a"}},
+	}, nil, false)
+
+	branches := []model.BranchInfo{
+		{Name: "feature/task", Key: "refs/heads/feature/task", Scope: model.BranchScopeLocal, Autocheck: true},
+	}
+
+	// 1. Initial autocheck
+	m.applyAutocheckSelection("repo-a", branches)
+	if !m.selected["repo-a"]["refs/heads/feature/task"] {
+		t.Fatal("expected initial auto-selection")
+	}
+
+	// 2. Manual unselect via Update
+	m.focus = focusBranches
+	m.activeRepo = model.RepoBranches{RepoName: "repo-a", Branches: branches}
+	m.repoStats["repo-a"] = model.RepoStat{Loaded: true}
+	m.branchCursor["repo-a"] = 0
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeySpace})
+	m = updated.(Model)
+
+	if m.selected["repo-a"]["refs/heads/feature/task"] {
+		t.Fatal("expected manual unselect to work")
+	}
+
+	// 3. Refresh (re-apply autocheck) - should NOT re-select
+	m.applyAutocheckSelection("repo-a", branches)
+
+	if m.selected["repo-a"]["refs/heads/feature/task"] {
+		t.Fatal("expected manual unselect to persist after re-applying autocheck")
+	}
+}
