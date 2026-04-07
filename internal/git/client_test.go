@@ -12,6 +12,81 @@ import (
 	"github.com/agelxnash/go-repo-orchestrator/internal/model"
 )
 
+func TestResolveRepoPathRejectsNestedSubdir(t *testing.T) {
+	t.Parallel()
+
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git binary is required")
+	}
+
+	dir := t.TempDir()
+	repoPath := filepath.Join(dir, "repo")
+
+	runCmd(t, dir, "git", "init", repoPath)
+	runCmd(t, repoPath, "git", "config", "user.email", "test@example.com")
+	runCmd(t, repoPath, "git", "config", "user.name", "tester")
+	writeFile(t, filepath.Join(repoPath, "README.md"), "init\n")
+	runCmd(t, repoPath, "git", "add", "README.md")
+	runCmd(t, repoPath, "git", "commit", "-m", "init")
+
+	// Создаём вложенную подпапку без собственного .git
+	nestedPath := filepath.Join(repoPath, "common", "static")
+	if err := os.MkdirAll(nestedPath, 0o755); err != nil {
+		t.Fatalf("create nested dir: %v", err)
+	}
+
+	client := NewClient(5*time.Second, filepath.Join(dir, "workspace"))
+	_, err := client.ResolveRepoPath(t.Context(), "local", "", nestedPath)
+	if err == nil {
+		t.Fatal("expected error for nested subdir, got nil")
+	}
+	if !strings.Contains(err.Error(), "не является корнем git-репозитория") {
+		t.Fatalf("expected root mismatch error, got: %v", err)
+	}
+}
+
+func TestResolveRepoPathAcceptsSeparateNestedRepo(t *testing.T) {
+	t.Parallel()
+
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git binary is required")
+	}
+
+	dir := t.TempDir()
+	parentRepoPath := filepath.Join(dir, "parent-repo")
+	nestedRepoPath := filepath.Join(parentRepoPath, "nested-repo")
+
+	// Создаём родительский репозиторий
+	runCmd(t, dir, "git", "init", parentRepoPath)
+	runCmd(t, parentRepoPath, "git", "config", "user.email", "test@example.com")
+	runCmd(t, parentRepoPath, "git", "config", "user.name", "tester")
+	writeFile(t, filepath.Join(parentRepoPath, "README.md"), "parent\n")
+	runCmd(t, parentRepoPath, "git", "add", "README.md")
+	runCmd(t, parentRepoPath, "git", "commit", "-m", "parent init")
+
+	// Создаём отдельный вложенный репозиторий с собственным .git
+	runCmd(t, parentRepoPath, "git", "init", nestedRepoPath)
+	runCmd(t, nestedRepoPath, "git", "config", "user.email", "test@example.com")
+	runCmd(t, nestedRepoPath, "git", "config", "user.name", "tester")
+	writeFile(t, filepath.Join(nestedRepoPath, "NESTED.md"), "nested\n")
+	runCmd(t, nestedRepoPath, "git", "add", "NESTED.md")
+	runCmd(t, nestedRepoPath, "git", "commit", "-m", "nested init")
+
+	client := NewClient(5*time.Second, filepath.Join(dir, "workspace"))
+	resolved, err := client.ResolveRepoPath(t.Context(), "local", "", nestedRepoPath)
+	if err != nil {
+		t.Fatalf("expected nested repo to be accepted, got error: %v", err)
+	}
+
+	absNestedPath, err := filepath.Abs(nestedRepoPath)
+	if err != nil {
+		t.Fatalf("resolve absolute nested path: %v", err)
+	}
+	if resolved != absNestedPath {
+		t.Fatalf("expected resolved path %s, got %s", absNestedPath, resolved)
+	}
+}
+
 func TestResolveRepoPathAcceptsGitWorktree(t *testing.T) {
 	t.Parallel()
 
