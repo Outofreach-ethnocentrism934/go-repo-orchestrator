@@ -1,4 +1,6 @@
 name: YAML Lint
+permissions:
+  contents: read
 on:
   push:
     paths: [ '**/*.yaml', '**/*.yml' ]
