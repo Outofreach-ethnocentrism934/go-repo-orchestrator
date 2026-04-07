@@ -44,6 +44,5 @@ jobs:
         with:
           configFile: ./commitlint.config.mjs
           helpURL: https://www.conventionalcommits.org/en/v1.0.0/
-          ignoreDependabot: 'true'
         env:
           NODE_PATH: ${{ github.workspace }}/node_modules

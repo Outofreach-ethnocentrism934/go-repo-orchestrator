@@ -6,8 +6,8 @@
   [![Latest release](https://img.shields.io/github/v/release/AgelxNash/go-repo-orchestrator)](https://github.com/AgelxNash/go-repo-orchestrator/releases)
   [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-fe5196.svg)](https://www.conventionalcommits.org/en/v1.0.0/)
   ![Go Report Card](https://goreportcard.com/badge/github.com/AgelxNash/go-repo-orchestrator)
-  [![CI](https://github.com/AgelxNash/go-repo-orchestrator/actions/workflows/ci.yml/badge.svg)](https://github.com/AgelxNash/go-repo-orchestrator/actions/workflows/ci.yml)
-  [![Release workflow](https://github.com/AgelxNash/go-repo-orchestrator/actions/workflows/release.yaml/badge.svg)](https://github.com/AgelxNash/go-repo-orchestrator/actions/workflows/release.yaml)
+  [![CI](https://img.shields.io/github/actions/workflow/status/AgelxNash/go-repo-orchestrator/ci.yml?branch=main&label=CI)](https://github.com/AgelxNash/go-repo-orchestrator/actions/workflows/ci.yml)
+  [![Release workflow](https://img.shields.io/github/actions/workflow/status/AgelxNash/go-repo-orchestrator/release.yaml?label=Release)](https://github.com/AgelxNash/go-repo-orchestrator/actions/workflows/release.yaml)
   [![Go Reference](https://pkg.go.dev/badge/github.com/AgelxNash/go-repo-orchestrator.svg)](https://pkg.go.dev/github.com/AgelxNash/go-repo-orchestrator)
   [![License](https://img.shields.io/github/license/AgelxNash/go-repo-orchestrator)](https://github.com/AgelxNash/go-repo-orchestrator/blob/main/LICENSE)
 </div>
