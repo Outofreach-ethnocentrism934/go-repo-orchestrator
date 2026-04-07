@@ -1338,6 +1338,7 @@ func TestRemoteScopeViewportStaysVisibleAfterScrollDownAndUp(t *testing.T) {
 			current := caseModel.currentBranch()
 			if current == nil {
 				t.Fatalf("%s: expected current branch while scrolling", name)
+				return // unreachable, satisfies staticcheck SA5011
 			}
 			panel := caseModel.viewBranchesPanel(120, branchesHeight)
 			display := caseModel.branchDisplayName(*current)
@@ -1982,5 +1983,161 @@ func TestF6HintVisibleInTopMenuAndHotkeyBar(t *testing.T) {
 	bar = m.viewHotkeyBar(240)
 	if !strings.Contains(bar, "F6") {
 		t.Fatalf("expected F6 in branches hotkey bar, got %q", bar)
+	}
+}
+
+func TestApplyAutocheckSelectionMarksEligibleBranches(t *testing.T) {
+	m := NewModel(&config.Config{
+		Repos: []config.RepoConfig{{Name: "repo-a", Path: "/tmp/repo-a"}},
+	}, nil, false)
+
+	branches := []model.BranchInfo{
+		{Name: "feature/task", Key: "refs/heads/feature/task", Scope: model.BranchScopeLocal, Autocheck: true},
+		{Name: "bugfix/fix", Key: "refs/heads/bugfix/fix", Scope: model.BranchScopeLocal, Autocheck: true},
+		{Name: "hotfix/urgent", Key: "refs/heads/hotfix/urgent", Scope: model.BranchScopeLocal, Autocheck: false},
+		{Name: "release/1.0", Key: "refs/heads/release/1.0", Scope: model.BranchScopeLocal, Autocheck: true, Protected: true},
+	}
+
+	m.applyAutocheckSelection("repo-a", branches)
+
+	selected := m.selected["repo-a"]
+	if !selected["refs/heads/feature/task"] {
+		t.Fatal("expected feature/task to be auto-selected")
+	}
+	if !selected["refs/heads/bugfix/fix"] {
+		t.Fatal("expected bugfix/fix to be auto-selected")
+	}
+	if selected["refs/heads/hotfix/urgent"] {
+		t.Fatal("expected hotfix/urgent to NOT be auto-selected (Autocheck=false)")
+	}
+	if selected["refs/heads/release/1.0"] {
+		t.Fatal("expected release/1.0 to NOT be auto-selected (Protected=true)")
+	}
+}
+
+func TestManualOverrideCanUnselectAutocheckBranch(t *testing.T) {
+	m := NewModel(&config.Config{
+		Repos: []config.RepoConfig{{Name: "repo-a", Path: "/tmp/repo-a"}},
+	}, nil, false)
+
+	branches := []model.BranchInfo{
+		{Name: "feature/task", Key: "refs/heads/feature/task", Scope: model.BranchScopeLocal, Autocheck: true},
+	}
+
+	// Simulate autocheck selection
+	m.applyAutocheckSelection("repo-a", branches)
+
+	// Verify initial state
+	if !m.selected["repo-a"]["refs/heads/feature/task"] {
+		t.Fatal("expected feature/task to be auto-selected initially")
+	}
+
+	// Simulate manual override: user presses Space on the auto-selected branch
+	m.focus = focusBranches
+	m.branchScope = branchScopeLocal
+	m.activeRepo = model.RepoBranches{
+		RepoName: "repo-a",
+		Branches: branches,
+	}
+	m.repoStats["repo-a"] = model.RepoStat{Loaded: true}
+	m.branchCursor["repo-a"] = 0
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeySpace})
+	next := updated.(Model)
+
+	// Manual toggle should unselect the auto-selected branch
+	if next.selected["repo-a"]["refs/heads/feature/task"] {
+		t.Fatal("expected manual Space to unselect auto-selected branch")
+	}
+}
+
+func TestManualOverrideCanSelectNonAutocheckBranch(t *testing.T) {
+	m := NewModel(&config.Config{
+		Repos: []config.RepoConfig{{Name: "repo-a", Path: "/tmp/repo-a"}},
+	}, nil, false)
+
+	branches := []model.BranchInfo{
+		{Name: "feature/task", Key: "refs/heads/feature/task", Scope: model.BranchScopeLocal, Autocheck: true},
+		{Name: "hotfix/urgent", Key: "refs/heads/hotfix/urgent", Scope: model.BranchScopeLocal, Autocheck: false},
+	}
+
+	m.applyAutocheckSelection("repo-a", branches)
+
+	// hotfix/urgent should NOT be auto-selected
+	if m.selected["repo-a"]["refs/heads/hotfix/urgent"] {
+		t.Fatal("expected hotfix/urgent to NOT be auto-selected")
+	}
+
+	// Navigate to hotfix/urgent and select manually
+	m.focus = focusBranches
+	m.branchScope = branchScopeLocal
+	m.activeRepo = model.RepoBranches{
+		RepoName: "repo-a",
+		Branches: branches,
+	}
+	m.repoStats["repo-a"] = model.RepoStat{Loaded: true}
+	m.branchCursor["repo-a"] = 1
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeySpace})
+	next := updated.(Model)
+
+	if !next.selected["repo-a"]["refs/heads/hotfix/urgent"] {
+		t.Fatal("expected manual Space to select non-autocheck branch")
+	}
+}
+
+func TestAutocheckSelectionIsIdempotent(t *testing.T) {
+	m := NewModel(&config.Config{
+		Repos: []config.RepoConfig{{Name: "repo-a", Path: "/tmp/repo-a"}},
+	}, nil, false)
+
+	branches := []model.BranchInfo{
+		{Name: "feature/task", Key: "refs/heads/feature/task", Scope: model.BranchScopeLocal, Autocheck: true},
+	}
+
+	m.applyAutocheckSelection("repo-a", branches)
+	m.applyAutocheckSelection("repo-a", branches)
+
+	if len(m.selected["repo-a"]) != 1 {
+		t.Fatalf("expected exactly 1 selected branch after double apply, got %d", len(m.selected["repo-a"]))
+	}
+	if !m.selected["repo-a"]["refs/heads/feature/task"] {
+		t.Fatal("expected feature/task to remain selected")
+	}
+}
+
+func TestManualOverridePersistsAfterRefresh(t *testing.T) {
+	m := NewModel(&config.Config{
+		Repos: []config.RepoConfig{{Name: "repo-a", Path: "/tmp/repo-a"}},
+	}, nil, false)
+
+	branches := []model.BranchInfo{
+		{Name: "feature/task", Key: "refs/heads/feature/task", Scope: model.BranchScopeLocal, Autocheck: true},
+	}
+
+	// 1. Initial autocheck
+	m.applyAutocheckSelection("repo-a", branches)
+	if !m.selected["repo-a"]["refs/heads/feature/task"] {
+		t.Fatal("expected initial auto-selection")
+	}
+
+	// 2. Manual unselect via Update
+	m.focus = focusBranches
+	m.activeRepo = model.RepoBranches{RepoName: "repo-a", Branches: branches}
+	m.repoStats["repo-a"] = model.RepoStat{Loaded: true}
+	m.branchCursor["repo-a"] = 0
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeySpace})
+	m = updated.(Model)
+
+	if m.selected["repo-a"]["refs/heads/feature/task"] {
+		t.Fatal("expected manual unselect to work")
+	}
+
+	// 3. Refresh (re-apply autocheck) - should NOT re-select
+	m.applyAutocheckSelection("repo-a", branches)
+
+	if m.selected["repo-a"]["refs/heads/feature/task"] {
+		t.Fatal("expected manual unselect to persist after re-applying autocheck")
 	}
 }

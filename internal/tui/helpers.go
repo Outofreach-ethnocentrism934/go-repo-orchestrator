@@ -11,6 +11,7 @@ import (
 	"github.com/agelxnash/go-repo-orchestrator/internal/model"
 )
 
+// ensureRepoSelection гарантирует наличие карты выбранных веток для указанного репозитория.
 func (m *Model) ensureRepoSelection(repoName string) map[string]bool {
 	if _, ok := m.selected[repoName]; !ok {
 		m.selected[repoName] = make(map[string]bool)
@@ -18,6 +19,7 @@ func (m *Model) ensureRepoSelection(repoName string) map[string]bool {
 	return m.selected[repoName]
 }
 
+// ensureRepoState инициализирует состояние (курсор, смещение, выбор) для указанного репозитория, если оно отсутствует.
 func (m *Model) ensureRepoState(repoName string) {
 	_ = m.ensureRepoSelection(repoName)
 	if _, ok := m.branchCursor[repoName]; !ok {
@@ -28,6 +30,7 @@ func (m *Model) ensureRepoState(repoName string) {
 	}
 }
 
+// isSelected проверяет, выбрана ли указанная ветка в данном репозитории.
 func (m Model) isSelected(repoName, key string) bool {
 	repoSelected, ok := m.selected[repoName]
 	if !ok {
@@ -37,6 +40,7 @@ func (m Model) isSelected(repoName, key string) bool {
 	return repoSelected[key]
 }
 
+// selectedBranches возвращает список всех веток репозитория, выбранных пользователем (исключая защищенные).
 func (m Model) selectedBranches(repoName string) []model.BranchInfo {
 	repoSelected, ok := m.selected[repoName]
 	if !ok {
@@ -61,6 +65,7 @@ func (m Model) selectedBranches(repoName string) []model.BranchInfo {
 	return result
 }
 
+// visibleBranches возвращает список веток активного репозитория, отфильтрованных по области видимости (Local/Remote/All) и поисковому запросу.
 func (m Model) visibleBranches() []model.BranchInfo {
 	query := ""
 	if m.searchMode || m.searchInput.Value() != "" {
@@ -98,6 +103,7 @@ func (m Model) visibleBranches() []model.BranchInfo {
 	return visible
 }
 
+// visibleRepoIndices возвращает индексы репозиториев из конфигурации, подходящих под текущий поисковый фильтр.
 func (m Model) visibleRepoIndices() []int {
 	query := ""
 	if m.searchMode || m.searchInput.Value() != "" {
@@ -130,6 +136,7 @@ func (m Model) visibleRepoIndices() []int {
 	return indices
 }
 
+// currentCursor возвращает позицию курсора в списке веток для указанного репозитория.
 func (m Model) currentCursor(repoName string) int {
 	cursor, ok := m.branchCursor[repoName]
 	if !ok {
@@ -138,6 +145,7 @@ func (m Model) currentCursor(repoName string) int {
 	return cursor
 }
 
+// clampBranchCursor удерживает курсор веток в пределах допустимых границ для указанного репозитория.
 func (m *Model) clampBranchCursor(repoName string) {
 	branches := m.visibleBranches()
 	if len(branches) == 0 {
@@ -156,6 +164,7 @@ func (m *Model) clampBranchCursor(repoName string) {
 	m.branchCursor[repoName] = cur
 }
 
+// ensureRepoCursorVisible корректирует смещение вьюпорта репозиториев, чтобы выбранный репозиторий всегда был виден.
 func (m *Model) ensureRepoCursorVisible() {
 	indices := m.visibleRepoIndices()
 	if len(indices) == 0 {
@@ -182,6 +191,7 @@ func (m Model) repoVisiblePosition(indices []int) int {
 	return -1
 }
 
+// ensureBranchCursorVisible корректирует смещение вьюпорта веток, чтобы выбранная ветка всегда была видна.
 func (m *Model) ensureBranchCursorVisible(repoName string) {
 	if repoName == "" {
 		return
@@ -277,6 +287,7 @@ func adjustedViewportOffset(offset, cursor, total, rows int) int {
 	return offset
 }
 
+// currentBranch возвращает информацию о ветке под курсором в активном репозитории.
 func (m Model) currentBranch() *model.BranchInfo {
 	branches := m.visibleBranches()
 	if len(branches) == 0 {
@@ -290,6 +301,7 @@ func (m Model) currentBranch() *model.BranchInfo {
 	return &branch
 }
 
+// selectedRepoName возвращает имя репозитория под курсором в панели репозиториев.
 func (m Model) selectedRepoName() string {
 	if len(m.cfg.Repos) == 0 || m.repoIdx < 0 || m.repoIdx >= len(m.cfg.Repos) {
 		return ""
@@ -382,6 +394,7 @@ func (m Model) repoStatusCode(status string) string {
 	}
 }
 
+// branchSelectionKey возвращает уникальный строковый ключ для идентификации ветки в карте выбранных элементов.
 func (m Model) branchSelectionKey(branch model.BranchInfo) string {
 	if strings.TrimSpace(branch.Key) != "" {
 		return branch.Key
@@ -395,6 +408,7 @@ func (m Model) branchSelectionKey(branch model.BranchInfo) string {
 	return branch.Name
 }
 
+// branchDisplayName возвращает форматированное имя ветки для отображения в интерфейсе (с учетом удаленных репозиториев).
 func (m Model) branchDisplayName(branch model.BranchInfo) string {
 	if branch.IsRemote() && branch.RemoteName != "" {
 		return branch.RemoteName + "/" + branch.Name
@@ -405,6 +419,7 @@ func (m Model) branchDisplayName(branch model.BranchInfo) string {
 	return branch.Name
 }
 
+// branchListName возвращает имя ветки для вывода в списке, добавляя маркеры защиты (*).
 func (m Model) branchListName(branch model.BranchInfo) string {
 	name := m.branchDisplayName(branch)
 	if branch.Protected {
@@ -424,6 +439,7 @@ func (m Model) isBranchSelectable(branch model.BranchInfo) bool {
 	return !branch.Protected
 }
 
+// invertVisibleBranchSelection инвертирует выбор для всех видимых (отфильтрованных) веток, которые не являются защищенными.
 func (m *Model) invertVisibleBranchSelection(repoName string) int {
 	selected := m.ensureRepoSelection(repoName)
 	toggled := 0
@@ -436,6 +452,24 @@ func (m *Model) invertVisibleBranchSelection(repoName string) int {
 		toggled++
 	}
 	return toggled
+}
+
+// applyAutocheckSelection помечает ветки для автоматического выбора на основе правил из конфигурации.
+// Данная функция вызывается при загрузке списка веток репозитория.
+// Она уважает ручной выбор пользователя: если ветка уже присутствует в списке выбранных (или явно снятых),
+// значение не перезаписывается.
+func (m *Model) applyAutocheckSelection(repoName string, branches []model.BranchInfo) {
+	selected := m.ensureRepoSelection(repoName)
+	for _, branch := range branches {
+		if branch.Autocheck && !branch.Protected {
+			key := m.branchSelectionKey(branch)
+			// Применяем автоматический выбор только если для этой ветки еще нет сохраненного состояния
+			// (пользователь еще не нажимал пробел для этой ветки в текущей сессии).
+			if _, exists := selected[key]; !exists {
+				selected[key] = true
+			}
+		}
+	}
 }
 
 func onOff(v bool) string {
@@ -559,6 +593,7 @@ func truncate(s string, limit int) string {
 	return string(runes[:limit-1]) + "…"
 }
 
+// fitCell усекает строку до заданной ширины и дополняет пробелами для выравнивания в ячейке.
 func fitCell(s string, width int) string {
 	if width <= 0 {
 		return ""

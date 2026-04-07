@@ -26,6 +26,7 @@ type Config struct {
 	jiraByGroup map[string]JiraConfig
 }
 
+// BrowserConfig содержит настройки подключения к браузеру (например, через CDP).
 type BrowserConfig struct {
 	CDPURL string `yaml:"cdp_url" mapstructure:"cdp_url"`
 }
@@ -37,8 +38,9 @@ type RepoConfig struct {
 	Path   string `yaml:"path" mapstructure:"path"`
 	Branch Branch `yaml:"branch" mapstructure:"branch"`
 
-	keep []*compiledPattern
-	jira []*compiledPattern
+	keep      []*compiledPattern
+	jira      []*compiledPattern
+	autocheck []*compiledPattern
 
 	jiraGroups map[string]JiraConfig
 }
@@ -48,6 +50,7 @@ type Branch struct {
 	Autoswitch string   `yaml:"autoswitch,omitempty" mapstructure:"autoswitch"`
 	Keep       []string `yaml:"keep" mapstructure:"keep"`
 	Jira       []string `yaml:"jira" mapstructure:"jira"`
+	Autocheck  []string `yaml:"autocheck" mapstructure:"autocheck"`
 }
 
 // JiraConfig парсит верхнеуровневый раздел jira интеграций.
@@ -61,11 +64,13 @@ type JiraConfig struct {
 	Token      string    `yaml:"token" mapstructure:"token"`
 }
 
+// JiraLogin хранит учетные данные для базовой аутентификации в Jira.
 type JiraLogin struct {
 	Username string `yaml:"username" mapstructure:"username"`
 	Password string `yaml:"password" mapstructure:"password"`
 }
 
+// JiraMatch содержит результат успешного сопоставления ветки с тикетом в Jira.
 type JiraMatch struct {
 	Key       string
 	Group     string
@@ -83,6 +88,7 @@ const (
 	JiraMatchReasonFallbackFullMatch JiraMatchReason = "fallback_full_match"
 )
 
+// JiraMatchDiagnostics описывает детали процесса сопоставления для отладки.
 type JiraMatchDiagnostics struct {
 	Reason  JiraMatchReason
 	Pattern string
@@ -90,6 +96,7 @@ type JiraMatchDiagnostics struct {
 	Key     string
 }
 
+// compiledPattern хранит скомпилированное регулярное выражение и его исходную строку.
 type compiledPattern struct {
 	raw string
 	re  *regexp.Regexp
@@ -191,6 +198,11 @@ func LoadFromViper(v *viper.Viper) (*Config, error) {
 			return nil, fmt.Errorf("repo[%s]: branch.jira: %w", repo.Name, err)
 		}
 
+		repo.autocheck, err = compilePatterns(repo.Branch.Autocheck)
+		if err != nil {
+			return nil, fmt.Errorf("repo[%s]: branch.autocheck: %w", repo.Name, err)
+		}
+
 		repo.jiraGroups = cfg.jiraByGroup
 	}
 
@@ -206,6 +218,7 @@ type repoIdentityRef struct {
 	name  string
 }
 
+// validateRepoIdentityConflicts проверяет список репозиториев на наличие дубликатов имен или путей.
 func validateRepoIdentityConflicts(repos []RepoConfig) error {
 	nameOwners := make(map[string]repoIdentityRef, len(repos))
 	workdirOwners := make(map[string]repoIdentityRef, len(repos))
@@ -241,6 +254,7 @@ func validateRepoIdentityConflicts(repos []RepoConfig) error {
 	return fmt.Errorf("ошибка конфигурации: обнаружены конфликтующие репозитории. Приложение остановлено до исправления config.yaml:\n%s", strings.Join(conflicts, "\n"))
 }
 
+// repoWorkdirKey генерирует уникальный ключ для рабочего каталога репозитория.
 func repoWorkdirKey(repo RepoConfig) string {
 	if repo.Path != "" {
 		return "path:" + repo.Path
@@ -249,6 +263,7 @@ func repoWorkdirKey(repo RepoConfig) string {
 	return "managed:" + managedRepoDirKey(repo.Name, repo.URL)
 }
 
+// managedRepoDirKey возвращает путь к каталогу для автоматически управляемого репозитория.
 func managedRepoDirKey(repoName, repoURL string) string {
 	return workdir.ManagedRepoDirKey(repoName, repoURL)
 }
@@ -267,6 +282,7 @@ func (r RepoConfig) SourceType() string {
 	return "url"
 }
 
+// compilePatterns компилирует список строк в регулярные выражения.
 func compilePatterns(patterns []string) ([]*compiledPattern, error) {
 	result := make([]*compiledPattern, 0, len(patterns))
 	for _, pattern := range patterns {
@@ -281,6 +297,7 @@ func compilePatterns(patterns []string) ([]*compiledPattern, error) {
 
 var scpLikeGitURLRE = regexp.MustCompile(`^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+:[A-Za-z0-9._~/-]+(?:\.git)?$`)
 
+// validateRepoURL проверяет корректность Git URL (HTTP/SSH/SCP).
 func validateRepoURL(raw string) error {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -312,6 +329,7 @@ func validateRepoURL(raw string) error {
 	return nil
 }
 
+// validateBrowserCDPURL проверяет валидность URL для CDP подключения.
 func validateBrowserCDPURL(raw string) error {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -336,6 +354,7 @@ func validateBrowserCDPURL(raw string) error {
 	return nil
 }
 
+// validateJiraURL проверяет корректность базового URL Jira (только HTTPS).
 func validateJiraURL(raw string) error {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -400,6 +419,17 @@ func (r RepoConfig) ProtectedReason(branch string) (string, bool) {
 	}
 
 	return "", false
+}
+
+// MatchesAutocheck проверяет, совпадает ли имя ветки с любым из branch.autocheck правил.
+// Возвращает false при пустом autocheck (no-op).
+func (r RepoConfig) MatchesAutocheck(branch string) bool {
+	for _, p := range r.autocheck {
+		if p.re.MatchString(branch) {
+			return true
+		}
+	}
+	return false
 }
 
 // ExtractJiraKey пытается извлечь Jira key из ветки по repo.jira regex.
@@ -493,10 +523,12 @@ func (r RepoConfig) ExtractJiraMatchDetailed(branch string) (JiraMatch, bool, Ji
 	return JiraMatch{}, false, JiraMatchDiagnostics{Reason: JiraMatchReasonNoRegexMatch}
 }
 
+// normalizeJiraBaseURL очищает и нормализует базовый URL Jira.
 func normalizeJiraBaseURL(raw string) string {
 	return strings.TrimRight(strings.TrimSpace(raw), "/")
 }
 
+// jiraTicketURL формирует полную ссылку на задачу в Jira.
 func jiraTicketURL(baseURL, ticket string) string {
 	baseURL = normalizeJiraBaseURL(baseURL)
 	ticket = strings.TrimSpace(ticket)
@@ -573,6 +605,7 @@ func ScanDirectory(ctx context.Context, dir string) (*Config, error) {
 	return &Config{Repos: repos}, nil
 }
 
+// readOriginURL пытается получить URL удаленного репозитория 'origin' для заданной директории.
 func readOriginURL(ctx context.Context, repoDir string) (string, bool) {
 	if ctx == nil {
 		ctx = context.Background()
