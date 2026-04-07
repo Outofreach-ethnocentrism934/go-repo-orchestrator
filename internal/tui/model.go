@@ -284,6 +284,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.repoData[msg.repoName] = msg.rb
+		m.applyAutocheckSelection(msg.repoName, msg.rb.Branches)
 		syncWarning := strings.TrimSpace(msg.rb.SyncWarning)
 		if syncWarning != "" {
 			if friendly := userFacingError(errors.New(syncWarning)); friendly != nil {

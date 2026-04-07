@@ -615,3 +615,109 @@ func runCommand(t *testing.T, workdir string, name string, args ...string) {
 		t.Fatalf("command failed: %s %v\n%s\n%v", name, args, string(out), err)
 	}
 }
+
+func TestLoadParsesBranchAutocheck(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "config.yaml")
+	raw := "repos:\n" +
+		"  - name: test\n" +
+		"    url: https://gitlab.com/anHome/git-branch-cleaner-test.git\n" +
+		"    branch:\n" +
+		"      keep: ['^(main|master)$']\n" +
+		"      autocheck: ['^feature/.*$', '^bugfix/.*$']\n"
+	if err := os.WriteFile(configPath, []byte(raw), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("load failed: %v", err)
+	}
+
+	repo := cfg.Repos[0]
+	if len(repo.Branch.Autocheck) != 2 {
+		t.Fatalf("expected 2 autocheck patterns, got %d", len(repo.Branch.Autocheck))
+	}
+	if !repo.MatchesAutocheck("feature/login") {
+		t.Fatal("feature/login must match autocheck")
+	}
+	if !repo.MatchesAutocheck("bugfix/crash") {
+		t.Fatal("bugfix/crash must match autocheck")
+	}
+	if repo.MatchesAutocheck("main") {
+		t.Fatal("main must not match autocheck")
+	}
+	if repo.MatchesAutocheck("hotfix/urgent") {
+		t.Fatal("hotfix/urgent must not match autocheck")
+	}
+}
+
+func TestAutocheckIsNoOpWhenEmpty(t *testing.T) {
+	t.Parallel()
+
+	repo := RepoConfig{}
+	repo.autocheck = nil
+
+	if repo.MatchesAutocheck("anything") {
+		t.Fatal("empty autocheck must not match any branch")
+	}
+}
+
+func TestLoadFailsOnInvalidAutocheckRegex(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "config.yaml")
+	raw := "repos:\n" +
+		"  - name: test\n" +
+		"    url: https://gitlab.com/anHome/git-branch-cleaner-test.git\n" +
+		"    branch:\n" +
+		"      autocheck: ['[invalid']\n"
+	if err := os.WriteFile(configPath, []byte(raw), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Load(configPath)
+	if err == nil {
+		t.Fatal("expected regex validation error for branch.autocheck")
+	}
+	if !strings.Contains(err.Error(), "branch.autocheck") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestAutocheckDoesNotMatchProtectedBranches(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "config.yaml")
+	raw := "repos:\n" +
+		"  - name: test\n" +
+		"    url: https://gitlab.com/anHome/git-branch-cleaner-test.git\n" +
+		"    branch:\n" +
+		"      keep: ['^release/.*$']\n" +
+		"      autocheck: ['^release/.*$', '^feature/.*$']\n"
+	if err := os.WriteFile(configPath, []byte(raw), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("load failed: %v", err)
+	}
+
+	repo := cfg.Repos[0]
+	// autocheck regex совпадает, но ветка защищена через keep
+	if !repo.IsProtected("release/1.0") {
+		t.Fatal("release/1.0 must be protected")
+	}
+	// MatchesAutocheck проверяет только regex, не защиту
+	if !repo.MatchesAutocheck("release/1.0") {
+		t.Fatal("release/1.0 must match autocheck regex")
+	}
+	if !repo.MatchesAutocheck("feature/task") {
+		t.Fatal("feature/task must match autocheck regex")
+	}
+}
