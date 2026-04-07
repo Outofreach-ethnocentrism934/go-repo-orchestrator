@@ -522,3 +522,20 @@ func writeFile(t *testing.T, path, content string) {
 		t.Fatalf("write file %s: %v", path, err)
 	}
 }
+
+func TestValidateRepoRootRespectsCanceledContext(t *testing.T) {
+	t.Parallel()
+
+	clientDir := t.TempDir()
+	// Используем существующую директорию, но с отмененным контекстом
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := validateRepoRoot(ctx, clientDir)
+	if err == nil {
+		t.Fatal("expected error for canceled context, got nil")
+	}
+	if !strings.Contains(err.Error(), "context canceled") {
+		t.Fatalf("expected context canceled error, got: %v", err)
+	}
+}

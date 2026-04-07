@@ -755,6 +755,9 @@ func resolveGitRoot(ctx context.Context, path string) (string, error) {
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
 	if err := cmd.Run(); err != nil {
+		if ctx.Err() != nil {
+			return "", ctx.Err()
+		}
 		return "", nil // not inside a git repo
 	}
 	return strings.TrimSpace(stdout.String()), nil
@@ -780,7 +783,7 @@ func validateRepoRoot(ctx context.Context, path string) (string, error) {
 
 	gitRoot, err := resolveGitRoot(ctx, absPath)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("поиск корня репозитория: %w", err)
 	}
 	if gitRoot == "" {
 		return "", ErrNotGitRepo
