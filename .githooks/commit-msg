@@ -4,13 +4,13 @@
 # Использует конфиг: .commitlint.yml (YAML)
 # GitHub Actions использует: commitlint.config.mjs (Node.js версия)
 
-if command -v commitlint >/dev/null 2>&1; then
-	commitlint lint --config .commitlint.yml --message "$1"
+if [ -x "$(go env GOPATH)/bin/commitlint" ]; then
+	"$(go env GOPATH)/bin/commitlint" lint --config .commitlint.yml --message "$1"
 	exit $?
 fi
 
-if [ -x "$(go env GOPATH)/bin/commitlint" ]; then
-	"$(go env GOPATH)/bin/commitlint" lint --config .commitlint.yml --message "$1"
+if command -v commitlint >/dev/null 2>&1; then
+	commitlint lint --config .commitlint.yml --message "$1"
 	exit $?
 fi
 
