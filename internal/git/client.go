@@ -37,14 +37,7 @@ func (c *Client) ResolveRepoPath(ctx context.Context, repoName, repoURL, localPa
 	repoURL = strings.TrimSpace(repoURL)
 
 	if localPath != "" {
-		absPath, err := filepath.Abs(localPath)
-		if err != nil {
-			return "", fmt.Errorf("определение локального пути: %w", err)
-		}
-		if !isGitRepo(ctx, absPath) {
-			return "", fmt.Errorf("локальный путь не является git-репозиторием: %s", absPath)
-		}
-		return absPath, nil
+		return validateRepoRoot(ctx, localPath)
 	}
 
 	if repoURL == "" {
@@ -128,6 +121,10 @@ func (c *Client) UpdateOpensourceRepo(ctx context.Context, url, targetPath, bran
 			return err
 		}
 	} else {
+		// Проверяем, что путь является корнем git-репозитория, а не вложенной подпапкой.
+		if _, err := validateRepoRoot(ctx, absPath); err != nil {
+			return fmt.Errorf("валидация корня opensource-репозитория: %w", err)
+		}
 		if err := c.ensureOriginURL(ctx, absPath, url); err != nil {
 			return err
 		}
@@ -747,6 +744,65 @@ func isGitRepo(ctx context.Context, path string) bool {
 	}
 
 	return info.IsDir()
+}
+
+var ErrNotGitRepo = errors.New("путь не является git-репозиторием")
+
+// resolveGitRoot возвращает корень git-репозитория для path, если path находится внутри git-репозитория.
+// Возвращает пустую строку, если path не внутри git-репозитория.
+func resolveGitRoot(ctx context.Context, path string) (string, error) {
+	cmd := exec.CommandContext(ctxOrBackground(ctx), "git", "-C", path, "rev-parse", "--show-toplevel")
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+	if err := cmd.Run(); err != nil {
+		if ctx.Err() != nil {
+			return "", ctx.Err()
+		}
+		return "", nil // not inside a git repo
+	}
+	return strings.TrimSpace(stdout.String()), nil
+}
+
+// normalizePath нормализует путь: разрешает symlinks и очищает от лишних элементов.
+func normalizePath(path string) (string, error) {
+	evalPath, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return filepath.Clean(path), nil
+	}
+	return filepath.Clean(evalPath), nil
+}
+
+// validateRepoRoot проверяет, что path является корнем git-репозитория (или worktree).
+// Возвращает нормализованный путь или ошибку.
+// Если path не находится внутри git-репозитория, возвращает ErrNotGitRepo.
+func validateRepoRoot(ctx context.Context, path string) (string, error) {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("определение абсолютного пути: %w", err)
+	}
+
+	gitRoot, err := resolveGitRoot(ctx, absPath)
+	if err != nil {
+		return "", fmt.Errorf("поиск корня репозитория: %w", err)
+	}
+	if gitRoot == "" {
+		return "", ErrNotGitRepo
+	}
+
+	normalizedPath, err := normalizePath(absPath)
+	if err != nil {
+		return "", fmt.Errorf("нормализация пути: %w", err)
+	}
+	normalizedRoot, err := normalizePath(gitRoot)
+	if err != nil {
+		return "", fmt.Errorf("нормализация корня: %w", err)
+	}
+
+	if normalizedPath != normalizedRoot {
+		return "", fmt.Errorf("путь не является корнем git-репозитория: %s (фактический корень: %s)", normalizedPath, normalizedRoot)
+	}
+
+	return normalizedPath, nil
 }
 
 func ensureDir(path string) error {
