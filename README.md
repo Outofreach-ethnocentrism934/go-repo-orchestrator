@@ -80,7 +80,7 @@
   - Оркестратор предложит выбрать один из недавно выпущенных (Released) релизов, найдет все связанные с ним задачи и пометит соответствующие локальные ветки.
   - **Assistive-only**: Автоматика только предлагает выбор, окончательное решение всегда за пользователем (Manual override > Auto-mark).
   - **Session-only**: Выбор релиза сохраняется только в рамках текущей сессии.
-  - **Resilience**: Поддержка bounded retry/backoff и заголовка `Retry-After` для обхода лимитов Jira API.
+  - **Resilience (release-autocheck only)**: В рамках Jira release-driven autocheck поддерживается bounded retry/backoff и заголовок `Retry-After` для обхода лимитов Jira API.
   - **No Silent Auto-run**: Проверка никогда не запускается автоматически при старте или обновлении.
 - 🌐 **CDP & Playwright-мосты**: Дополнительный транспорт через Chromium для сложных Jira-групп с защитой (Cloudflare/Captchas).
 

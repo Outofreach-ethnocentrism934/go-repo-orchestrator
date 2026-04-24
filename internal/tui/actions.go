@@ -149,6 +149,10 @@ func (m *Model) startLoadReleaseOptions() tea.Cmd {
 }
 
 func (m *Model) startApplyReleaseAutocheck(choice usecase.RepoRelease) tea.Cmd {
+	if m.releaseLoading {
+		return nil
+	}
+
 	repo, ok := m.cfg.RepoByName(m.activeRepo.RepoName)
 	if !ok {
 		m.err = errors.New("репозиторий не найден в конфигурации")

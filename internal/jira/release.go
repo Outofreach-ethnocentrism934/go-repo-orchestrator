@@ -1,6 +1,7 @@
 package jira
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"net/url"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -276,7 +278,7 @@ func buildReleasedVersionsURL(jiraBaseURL, group string, startAt int) (string, e
 		return "", fmt.Errorf("разобрать базовый url jira: %w", err)
 	}
 
-	parsed.Path = strings.TrimRight(parsed.Path, "/") + "/rest/api/3/project/" + url.PathEscape(group) + "/versions"
+	parsed.Path = strings.TrimRight(parsed.Path, "/") + "/rest/api/2/project/" + url.PathEscape(group) + "/versions"
 	query := parsed.Query()
 	query.Set("status", "released")
 	query.Set("maxResults", fmt.Sprintf("%d", jiraReleasePageSize))
@@ -306,7 +308,7 @@ func buildDoneIssuesByReleaseURL(jiraBaseURL, releaseID string, startAt int) (st
 	}
 	jql := "statusCategory = done AND fixVersion = " + releaseClause
 
-	parsed.Path = strings.TrimRight(parsed.Path, "/") + "/rest/api/3/search"
+	parsed.Path = strings.TrimRight(parsed.Path, "/") + "/rest/api/2/search"
 	query := parsed.Query()
 	query.Set("jql", jql)
 	query.Set("fields", "key")
@@ -327,10 +329,10 @@ func parseReleasedVersionsPage(body []byte) (releasedVersionsPage, error) {
 
 	if strings.HasPrefix(trimmed, "[") {
 		var raw []struct {
-			ID          any    `json:"id"`
-			Name        string `json:"name"`
-			Released    bool   `json:"released"`
-			ReleaseDate string `json:"releaseDate"`
+			ID          json.RawMessage `json:"id"`
+			Name        string          `json:"name"`
+			Released    bool            `json:"released"`
+			ReleaseDate string          `json:"releaseDate"`
 		}
 		if err := json.Unmarshal(body, &raw); err != nil {
 			return releasedVersionsPage{}, fmt.Errorf("декодировать jira release list: %w", err)
@@ -341,7 +343,10 @@ func parseReleasedVersionsPage(body []byte) (releasedVersionsPage, error) {
 			if !item.Released {
 				continue
 			}
-			id := strings.TrimSpace(fmt.Sprintf("%v", item.ID))
+			id, ok := parseReleaseID(item.ID)
+			if !ok {
+				continue
+			}
 			if id == "" {
 				continue
 			}
@@ -353,10 +358,10 @@ func parseReleasedVersionsPage(body []byte) (releasedVersionsPage, error) {
 
 	var payload struct {
 		Values []struct {
-			ID          any    `json:"id"`
-			Name        string `json:"name"`
-			Released    bool   `json:"released"`
-			ReleaseDate string `json:"releaseDate"`
+			ID          json.RawMessage `json:"id"`
+			Name        string          `json:"name"`
+			Released    bool            `json:"released"`
+			ReleaseDate string          `json:"releaseDate"`
 		} `json:"values"`
 		StartAt    int  `json:"startAt"`
 		MaxResults int  `json:"maxResults"`
@@ -372,7 +377,10 @@ func parseReleasedVersionsPage(body []byte) (releasedVersionsPage, error) {
 		if !item.Released {
 			continue
 		}
-		id := strings.TrimSpace(fmt.Sprintf("%v", item.ID))
+		id, ok := parseReleaseID(item.ID)
+		if !ok {
+			continue
+		}
 		if id == "" {
 			continue
 		}
@@ -424,4 +432,44 @@ func parseIssueKeysPage(body []byte) (issueKeysPage, error) {
 		total:    payload.Total,
 		received: len(payload.Issues),
 	}, nil
+}
+
+func parseReleaseID(raw json.RawMessage) (string, bool) {
+	raw = bytes.TrimSpace(raw)
+	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
+		return "", false
+	}
+
+	var stringID string
+	if err := json.Unmarshal(raw, &stringID); err == nil {
+		stringID = strings.TrimSpace(stringID)
+		if stringID == "" {
+			return "", false
+		}
+		return stringID, true
+	}
+
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+	var value any
+	if err := dec.Decode(&value); err != nil {
+		return "", false
+	}
+
+	switch v := value.(type) {
+	case json.Number:
+		id := strings.TrimSpace(v.String())
+		if id == "" {
+			return "", false
+		}
+		return id, true
+	case float64:
+		id := strings.TrimSpace(strconv.FormatFloat(v, 'f', -1, 64))
+		if id == "" {
+			return "", false
+		}
+		return id, true
+	default:
+		return "", false
+	}
 }

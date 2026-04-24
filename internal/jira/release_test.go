@@ -17,7 +17,7 @@ func TestListReleasedFixVersionsReturnsSortedReleasedOnly(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/rest/api/3/project/TASKS/versions" {
+		if r.URL.Path != "/rest/api/2/project/TASKS/versions" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
 		}
 		if got := r.URL.Query().Get("status"); got != "released" {
@@ -47,7 +47,7 @@ func TestListDoneIssueKeysByReleaseBuildsJQLAndPaginates(t *testing.T) {
 	requests := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests++
-		if r.URL.Path != "/rest/api/3/search" {
+		if r.URL.Path != "/rest/api/2/search" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
 		}
 		jql := r.URL.Query().Get("jql")
@@ -83,6 +83,31 @@ func TestListDoneIssueKeysByReleaseBuildsJQLAndPaginates(t *testing.T) {
 		t.Fatalf("expected 3 issue keys, got %d (%v)", len(keys), keys)
 	}
 	assertContainsExactKeys(t, keys, []string{"OPS-1", "OPS-2", "OPS-3"})
+}
+
+func TestListReleasedFixVersionsParsesNumericIDWithoutScientificNotation(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"values":[{"id":1234567890123456789,"name":"v-num","released":true,"releaseDate":"2026-04-10"}],"startAt":0,"maxResults":100,"total":1,"isLast":true}`))
+	}))
+	defer server.Close()
+
+	svc := NewStatusService(0, WithGroupConfigs([]config.JiraConfig{{Group: "TASKS", URL: server.URL}}))
+
+	versions, err := svc.ListReleasedFixVersions(t.Context(), "TASKS")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(versions) != 1 {
+		t.Fatalf("expected 1 version, got %d", len(versions))
+	}
+	if versions[0].ID != "1234567890123456789" {
+		t.Fatalf("expected stable numeric id string, got %q", versions[0].ID)
+	}
+	if strings.ContainsAny(strings.ToLower(versions[0].ID), "e+") {
+		t.Fatalf("expected non-scientific id format, got %q", versions[0].ID)
+	}
 }
 
 func TestListDoneIssueKeysByReleaseSafeNoopForUnknownGroup(t *testing.T) {

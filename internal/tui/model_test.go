@@ -2421,3 +2421,26 @@ func TestReleaseApplyUsesBranchesSnapshotNotLiveState(t *testing.T) {
 		t.Fatalf("expected snapshot-based match OPS-1, got %#v", applyMsg.branches)
 	}
 }
+
+func TestStartApplyReleaseAutocheckReturnsNilWhenReleaseLoading(t *testing.T) {
+	v := viper.New()
+	v.Set("repos", []map[string]any{{
+		"name": "repo-a",
+		"path": "/tmp/repo-a",
+	}})
+
+	cfg, err := config.LoadFromViper(v)
+	if err != nil {
+		t.Fatalf("load config from viper: %v", err)
+	}
+
+	m := NewModel(cfg, nil, false)
+	m.focus = focusBranches
+	m.activeRepo = model.RepoBranches{RepoName: "repo-a"}
+	m.releaseLoading = true
+
+	cmd := m.startApplyReleaseAutocheck(usecase.RepoRelease{Group: "TASKS", Version: jira.ReleaseVersion{ID: "42"}})
+	if cmd != nil {
+		t.Fatal("expected nil cmd when releaseLoading=true to prevent duplicate apply")
+	}
+}
