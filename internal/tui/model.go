@@ -610,7 +610,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			return m, nil
-		case "f11":
+		}
+
+		if isReleaseAutocheckKey(msg) {
 			if m.focus != focusBranches {
 				return m, nil
 			}

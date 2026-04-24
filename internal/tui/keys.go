@@ -18,6 +18,16 @@ func (m Model) isQuitKey(msg tea.KeyMsg) bool {
 func isInvertSelectionKey(msg tea.KeyMsg) bool {
 	key := strings.ToLower(msg.String())
 	switch key {
+	case "+", "kp+", "kp_add", "keypad+", "keypad_add", "numpad+", "numpad_add":
+		return true
+	}
+
+	return msg.Type == tea.KeyRunes && len(msg.Runes) == 1 && msg.Runes[0] == '+'
+}
+
+func isReleaseAutocheckKey(msg tea.KeyMsg) bool {
+	key := strings.ToLower(msg.String())
+	switch key {
 	case "*", "kp*", "kp_multiply", "keypad*", "keypad_multiply", "numpad*", "numpad_multiply":
 		return true
 	}

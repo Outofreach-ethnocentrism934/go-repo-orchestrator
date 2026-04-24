@@ -1022,7 +1022,7 @@ func TestSelectionUsesBranchKeyForDuplicateNames(t *testing.T) {
 	}
 }
 
-func TestStarInvertsOnlyVisibleSelectableBranches(t *testing.T) {
+func TestPlusInvertsOnlyVisibleSelectableBranches(t *testing.T) {
 	m := NewModel(&config.Config{
 		Repos: []config.RepoConfig{{Name: "repo-a", Path: "/tmp/repo-a"}},
 	}, nil, false)
@@ -1044,7 +1044,7 @@ func TestStarInvertsOnlyVisibleSelectableBranches(t *testing.T) {
 		"refs/heads/feature/local-protected": true,
 	}
 
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'*'}})
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'+'}})
 	next := updated.(Model)
 	selected := next.selected["repo-a"]
 
@@ -1065,7 +1065,7 @@ func TestStarInvertsOnlyVisibleSelectableBranches(t *testing.T) {
 	}
 }
 
-func TestNumpadStarInvertsSelection(t *testing.T) {
+func TestNumpadPlusInvertsSelection(t *testing.T) {
 	m := NewModel(&config.Config{
 		Repos: []config.RepoConfig{{Name: "repo-a", Path: "/tmp/repo-a"}},
 	}, nil, false)
@@ -1083,16 +1083,16 @@ func TestNumpadStarInvertsSelection(t *testing.T) {
 	}
 	m.repoStats["repo-a"] = model.RepoStat{Loaded: true}
 
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'*'}})
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'+'}})
 	next := updated.(Model)
 	if !next.selected["repo-a"]["refs/remotes/origin/feature/remote"] {
-		t.Fatal("expected '*' inversion to select remote branch")
+		t.Fatal("expected '+' inversion to select remote branch")
 	}
 
-	updated, _ = next.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'*'}})
+	updated, _ = next.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'+'}})
 	next = updated.(Model)
 	if next.selected["repo-a"]["refs/remotes/origin/feature/remote"] {
-		t.Fatal("expected second '*' inversion to unselect remote branch")
+		t.Fatal("expected second '+' inversion to unselect remote branch")
 	}
 }
 
@@ -2146,7 +2146,7 @@ func TestManualOverridePersistsAfterRefresh(t *testing.T) {
 	}
 }
 
-func TestF11StartsReleaseOptionsLoadOnlyInBranchesTab(t *testing.T) {
+func TestStarStartsReleaseOptionsLoadOnlyInBranchesTab(t *testing.T) {
 	m := NewModel(&config.Config{
 		Repos: []config.RepoConfig{{Name: "repo-a", Path: "/tmp/repo-a"}},
 	}, nil, false)
@@ -2155,21 +2155,21 @@ func TestF11StartsReleaseOptionsLoadOnlyInBranchesTab(t *testing.T) {
 	m.activeRepo = model.RepoBranches{RepoName: "repo-a", Branches: []model.BranchInfo{{Name: "OPS-1", Scope: model.BranchScopeLocal}}}
 	m.repoStats["repo-a"] = model.RepoStat{Loaded: true}
 
-	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyF11})
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'*'}})
 	next := updated.(Model)
 
 	if cmd == nil {
-		t.Fatal("expected non-nil command after F11 in branches tab")
+		t.Fatal("expected non-nil command after '*' in branches tab")
 	}
 	if !next.releaseLoading {
-		t.Fatal("expected releaseLoading=true after F11")
+		t.Fatal("expected releaseLoading=true after '*'")
 	}
 
 	m.focus = focusRepos
-	updated, cmd = m.Update(tea.KeyMsg{Type: tea.KeyF11})
+	updated, cmd = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'*'}})
 	next = updated.(Model)
 	if cmd != nil {
-		t.Fatal("expected nil command after F11 in repos tab")
+		t.Fatal("expected nil command after '*' in repos tab")
 	}
 	if next.releaseLoading {
 		t.Fatal("expected releaseLoading=false in repos tab")
@@ -2284,7 +2284,7 @@ func TestReleaseModalIgnoresFormatToggleKeys(t *testing.T) {
 	}
 }
 
-func TestReleaseFlowAcceptanceF11LoadSelectApplyAndSummary(t *testing.T) {
+func TestReleaseFlowAcceptanceStarLoadSelectApplyAndSummary(t *testing.T) {
 	cfg := &config.Config{Repos: []config.RepoConfig{{Name: "repo-a", Path: "/tmp/repo-a"}}}
 	m := NewModel(cfg, nil, false)
 
@@ -2292,10 +2292,10 @@ func TestReleaseFlowAcceptanceF11LoadSelectApplyAndSummary(t *testing.T) {
 	m.activeRepo = model.RepoBranches{RepoName: "repo-a", Branches: []model.BranchInfo{{Name: "OPS-1", Key: "refs/heads/OPS-1", Scope: model.BranchScopeLocal}, {Name: "OPS-2", Key: "refs/heads/OPS-2", Scope: model.BranchScopeLocal}}}
 	m.repoStats["repo-a"] = model.RepoStat{Loaded: true}
 
-	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyF11})
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'*'}})
 	next := updated.(Model)
 	if cmd == nil || !next.releaseLoading {
-		t.Fatal("expected F11 to initiate release loading")
+		t.Fatal("expected '*' to initiate release loading")
 	}
 
 	options := []usecase.RepoRelease{{Group: "TASKS", Version: jira.ReleaseVersion{ID: "42", Name: "Release 42", ReleaseDate: "2026-04-24"}}}

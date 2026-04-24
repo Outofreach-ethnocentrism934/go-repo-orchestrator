@@ -472,7 +472,7 @@ func (m Model) viewHotkeyBar(width int) string {
 			m.renderHotkeyItem("F5/r", "Обновить", true),
 			m.renderHotkeyItem("F6", "Сорт: "+m.branchSortCodeLabel(), true),
 			m.renderHotkeyItem("F7", "Клонировать", canCreateLocal),
-			m.renderHotkeyItem("F11", "Release auto", true),
+			m.renderHotkeyItem("*", "Release auto", true),
 			m.renderHotkeyItem("F8/g", "Скрипт", m.canGenerateScript()),
 			m.renderHotkeyItem("F9", "Скрытое", true),
 			m.renderHotkeyItem("F10/q", "Выход", true),
