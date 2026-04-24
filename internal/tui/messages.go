@@ -3,6 +3,8 @@ package tui
 import (
 	"context"
 
+	"github.com/agelxnash/go-repo-orchestrator/internal/usecase"
+
 	"github.com/agelxnash/go-repo-orchestrator/internal/model"
 )
 
@@ -59,6 +61,24 @@ type repoFetchPullCompletedMsg struct {
 	actionID  int
 	repoName  string
 	err       error
+}
+
+type releaseOptionsLoadedMsg struct {
+	actionKey string
+	actionID  int
+	repoName  string
+	options   []usecase.RepoRelease
+	err       error
+}
+
+type releaseAutocheckAppliedMsg struct {
+	actionKey  string
+	actionID   int
+	repoName   string
+	summary    usecase.ReleaseAutocheckResult
+	branches   []model.BranchInfo
+	selectedID string
+	err        error
 }
 
 type actionCancelRef struct {

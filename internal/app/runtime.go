@@ -40,6 +40,7 @@ func NewRuntime(stateDir, workspaceDir string, gitTimeout time.Duration, browser
 	cleaner := usecase.NewCleaner(
 		gitClient,
 		usecase.WithJiraStatusResolver(statusService),
+		usecase.WithJiraReleaseService(statusService),
 		usecase.WithLogger(logger),
 	)
 

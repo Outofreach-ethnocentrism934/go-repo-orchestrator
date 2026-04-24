@@ -10,6 +10,7 @@ import (
 
 	"github.com/agelxnash/go-repo-orchestrator/internal/config"
 	"github.com/agelxnash/go-repo-orchestrator/internal/model"
+	"github.com/agelxnash/go-repo-orchestrator/internal/usecase"
 )
 
 func (m *Model) startLoadActiveRepo() tea.Cmd {
@@ -112,6 +113,68 @@ func (m *Model) startFetchAndPullActiveRepo() tea.Cmd {
 	return tea.Batch(m.spinner.Tick, func() tea.Msg {
 		err := m.clean.FetchAndPullRepo(ctx, repo)
 		return repoFetchPullCompletedMsg{actionKey: actionKey, actionID: actionID, repoName: repo.Name, err: err}
+	})
+}
+
+func (m *Model) startLoadReleaseOptions() tea.Cmd {
+	if m.releaseLoading {
+		return nil
+	}
+	if m.focus != focusBranches {
+		return nil
+	}
+	if m.activeRepo.RepoName == "" {
+		m.statusLine = "Сначала откройте ветки репозитория"
+		return nil
+	}
+
+	repo, ok := m.cfg.RepoByName(m.activeRepo.RepoName)
+	if !ok {
+		m.err = errors.New("репозиторий не найден в конфигурации")
+		return nil
+	}
+
+	m.releaseLoading = true
+	m.err = nil
+	m.statusLine = "Загрузка Jira releases..."
+	actionKey := actionKeyReleaseOptions(repo.Name)
+	ctx, actionID := m.beginAction(actionKey)
+
+	return tea.Batch(m.spinner.Tick, func() tea.Msg {
+		options, err := m.clean.ListRepoReleasedFixVersions(ctx, repo, m.activeRepo.Branches)
+		return releaseOptionsLoadedMsg{actionKey: actionKey, actionID: actionID, repoName: repo.Name, options: options, err: err}
+	})
+}
+
+func (m *Model) startApplyReleaseAutocheck(choice usecase.RepoRelease) tea.Cmd {
+	repo, ok := m.cfg.RepoByName(m.activeRepo.RepoName)
+	if !ok {
+		m.err = errors.New("репозиторий не найден в конфигурации")
+		return nil
+	}
+
+	m.releaseLoading = true
+	m.confirmType = confirmNone
+	m.err = nil
+	m.statusLine = "Применение release-driven автопометки..."
+	actionKey := actionKeyReleaseApply(repo.Name)
+	ctx, actionID := m.beginAction(actionKey)
+
+	return tea.Batch(m.spinner.Tick, func() tea.Msg {
+		summary, branches, err := m.clean.BuildReleaseAutocheckCandidates(ctx, repo, m.activeRepo.Branches, choice.Group, choice.Version.ID)
+		if err != nil {
+			return releaseAutocheckAppliedMsg{actionKey: actionKey, actionID: actionID, repoName: repo.Name, summary: summary, err: err}
+		}
+
+		selectedID := strings.TrimSpace(choice.Version.ID)
+		return releaseAutocheckAppliedMsg{
+			actionKey:  actionKey,
+			actionID:   actionID,
+			repoName:   repo.Name,
+			summary:    summary,
+			branches:   branches,
+			selectedID: selectedID,
+		}
 	})
 }
 
@@ -239,4 +302,12 @@ func actionKeyLocalCopy(repoName string) string {
 
 func actionKeyFetchPull(repoName string) string {
 	return "repo.fetchpull." + strings.TrimSpace(repoName)
+}
+
+func actionKeyReleaseOptions(repoName string) string {
+	return "repo.release.options." + strings.TrimSpace(repoName)
+}
+
+func actionKeyReleaseApply(repoName string) string {
+	return "repo.release.apply." + strings.TrimSpace(repoName)
 }
