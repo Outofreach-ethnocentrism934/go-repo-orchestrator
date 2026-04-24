@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -139,9 +140,10 @@ func (m *Model) startLoadReleaseOptions() tea.Cmd {
 	m.statusLine = "Загрузка Jira releases..."
 	actionKey := actionKeyReleaseOptions(repo.Name)
 	ctx, actionID := m.beginAction(actionKey)
+	branchesSnapshot := slices.Clone(m.activeRepo.Branches)
 
 	return tea.Batch(m.spinner.Tick, func() tea.Msg {
-		options, err := m.clean.ListRepoReleasedFixVersions(ctx, repo, m.activeRepo.Branches)
+		options, err := m.clean.ListRepoReleasedFixVersions(ctx, repo, branchesSnapshot)
 		return releaseOptionsLoadedMsg{actionKey: actionKey, actionID: actionID, repoName: repo.Name, options: options, err: err}
 	})
 }
@@ -159,9 +161,10 @@ func (m *Model) startApplyReleaseAutocheck(choice usecase.RepoRelease) tea.Cmd {
 	m.statusLine = "Применение release-driven автопометки..."
 	actionKey := actionKeyReleaseApply(repo.Name)
 	ctx, actionID := m.beginAction(actionKey)
+	branchesSnapshot := slices.Clone(m.activeRepo.Branches)
 
 	return tea.Batch(m.spinner.Tick, func() tea.Msg {
-		summary, branches, err := m.clean.BuildReleaseAutocheckCandidates(ctx, repo, m.activeRepo.Branches, choice.Group, choice.Version.ID)
+		summary, branches, err := m.clean.BuildReleaseAutocheckCandidates(ctx, repo, branchesSnapshot, choice.Group, choice.Version.ID)
 		if err != nil {
 			return releaseAutocheckAppliedMsg{actionKey: actionKey, actionID: actionID, repoName: repo.Name, summary: summary, err: err}
 		}

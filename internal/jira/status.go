@@ -467,8 +467,16 @@ func extractKeys(batch []preparedStatusRequest) []string {
 }
 
 func (s *StatusService) resolveSearch(group string, transport groupTransport, requestURL string, headers map[string]string) (searchStatusResponse, bool, error) {
+	return s.resolveSearchWithContext(context.Background(), group, transport, requestURL, headers)
+}
+
+func (s *StatusService) resolveSearchWithContext(ctx context.Context, group string, transport groupTransport, requestURL string, headers map[string]string) (searchStatusResponse, bool, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	if transport == groupTransportBrowser {
-		responseHeaders, responseBody, browserErr := s.resolveStatusViaBrowser(requestURL, headers)
+		responseHeaders, responseBody, browserErr := s.resolveStatusViaBrowser(ctx, requestURL, headers)
 		if browserErr == nil {
 			return searchStatusResponse{
 				statusCode:  responseHeaders.statusCode,
@@ -481,14 +489,14 @@ func (s *StatusService) resolveSearch(group string, transport groupTransport, re
 
 		s.logBrowserFallback(group, browserErr)
 
-		httpResponse, err := s.resolveStatusViaHTTP(requestURL, headers)
+		httpResponse, err := s.resolveStatusViaHTTP(ctx, requestURL, headers)
 		if err != nil {
 			return searchStatusResponse{}, true, err
 		}
 		return httpResponse, true, nil
 	}
 
-	httpResponse, err := s.resolveStatusViaHTTP(requestURL, headers)
+	httpResponse, err := s.resolveStatusViaHTTP(ctx, requestURL, headers)
 	if err != nil {
 		return searchStatusResponse{}, false, err
 	}
@@ -496,8 +504,8 @@ func (s *StatusService) resolveSearch(group string, transport groupTransport, re
 	return httpResponse, false, nil
 }
 
-func (s *StatusService) resolveStatusViaHTTP(requestURL string, headers map[string]string) (searchStatusResponse, error) {
-	req, err := http.NewRequest(http.MethodGet, requestURL, nil)
+func (s *StatusService) resolveStatusViaHTTP(ctx context.Context, requestURL string, headers map[string]string) (searchStatusResponse, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
 	if err != nil {
 		return searchStatusResponse{}, fmt.Errorf("собрать jira-запрос: %w", err)
 	}
@@ -529,12 +537,15 @@ func (s *StatusService) resolveStatusViaHTTP(requestURL string, headers map[stri
 	}, nil
 }
 
-func (s *StatusService) resolveStatusViaBrowser(requestURL string, headers map[string]string) (browserSearchResponse, []byte, error) {
+func (s *StatusService) resolveStatusViaBrowser(ctx context.Context, requestURL string, headers map[string]string) (browserSearchResponse, []byte, error) {
 	if s.browser == nil {
 		return browserSearchResponse{}, nil, fmt.Errorf("browser runtime для jira не настроен")
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 
-	statusCode, responseHeaders, body, err := s.browser.RequestGET(context.Background(), requestURL, headers)
+	statusCode, responseHeaders, body, err := s.browser.RequestGET(ctx, requestURL, headers)
 	if err != nil {
 		return browserSearchResponse{}, nil, fmt.Errorf("ошибка browser-запроса jira: %w", err)
 	}

@@ -1,6 +1,8 @@
 package jira
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -119,10 +121,13 @@ func TestBuildDoneIssuesByReleaseURLEscapesStringReleaseID(t *testing.T) {
 }
 
 func TestListReleasedFixVersionsRetriesOn429AndHonorsRetryAfter(t *testing.T) {
-	origSleep := jiraReleaseSleepFn
-	t.Cleanup(func() { jiraReleaseSleepFn = origSleep })
+	origWait := jiraReleaseWaitFn
+	t.Cleanup(func() { jiraReleaseWaitFn = origWait })
 	delays := make([]time.Duration, 0, 2)
-	jiraReleaseSleepFn = func(d time.Duration) { delays = append(delays, d) }
+	jiraReleaseWaitFn = func(_ context.Context, d time.Duration) error {
+		delays = append(delays, d)
+		return nil
+	}
 
 	requests := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -157,10 +162,13 @@ func TestListReleasedFixVersionsRetriesOn429AndHonorsRetryAfter(t *testing.T) {
 }
 
 func TestListDoneIssueKeysByReleaseReturnsErrorAfter429RetriesExhausted(t *testing.T) {
-	origSleep := jiraReleaseSleepFn
-	t.Cleanup(func() { jiraReleaseSleepFn = origSleep })
+	origWait := jiraReleaseWaitFn
+	t.Cleanup(func() { jiraReleaseWaitFn = origWait })
 	countSleep := 0
-	jiraReleaseSleepFn = func(_ time.Duration) { countSleep++ }
+	jiraReleaseWaitFn = func(_ context.Context, _ time.Duration) error {
+		countSleep++
+		return nil
+	}
 
 	requests := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -184,5 +192,68 @@ func TestListDoneIssueKeysByReleaseReturnsErrorAfter429RetriesExhausted(t *testi
 	}
 	if countSleep != jiraReleaseMaxRetries {
 		t.Fatalf("expected %d sleeps, got %d", jiraReleaseMaxRetries, countSleep)
+	}
+}
+
+func TestListDoneIssueKeysByReleaseCancelsDuringRetryWait(t *testing.T) {
+	origWait := jiraReleaseWaitFn
+	t.Cleanup(func() { jiraReleaseWaitFn = origWait })
+
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		w.WriteHeader(http.StatusTooManyRequests)
+	}))
+	defer server.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	jiraReleaseWaitFn = func(waitCtx context.Context, _ time.Duration) error {
+		cancel()
+		<-waitCtx.Done()
+		return waitCtx.Err()
+	}
+
+	svc := NewStatusService(0, WithGroupConfigs([]config.JiraConfig{{Group: "TASKS", URL: server.URL}}))
+
+	_, err := svc.ListDoneIssueKeysByRelease(ctx, "TASKS", "42")
+	if err == nil {
+		t.Fatal("expected context cancellation error during retry wait")
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context.Canceled, got %v", err)
+	}
+	if requests != 1 {
+		t.Fatalf("expected single request before cancel, got %d", requests)
+	}
+}
+
+func TestListReleasedFixVersionsStopsPaginationOnCancel(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		switch requests {
+		case 1:
+			_, _ = w.Write([]byte(`{"values":[{"id":"1","name":"v1","released":true,"releaseDate":"2026-04-01"}],"startAt":0,"maxResults":1,"total":3,"isLast":false}`))
+			cancel()
+		case 2:
+			t.Fatalf("unexpected second pagination request after cancellation")
+		}
+	}))
+	defer server.Close()
+
+	svc := NewStatusService(0, WithGroupConfigs([]config.JiraConfig{{Group: "TASKS", URL: server.URL}}))
+
+	_, err := svc.ListReleasedFixVersions(ctx, "TASKS")
+	if err == nil {
+		t.Fatal("expected cancellation error during pagination")
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context.Canceled, got %v", err)
+	}
+	if requests != 1 {
+		t.Fatalf("expected one request before cancel, got %d", requests)
 	}
 }

@@ -17,11 +17,14 @@ const jiraReleaseMaxRetries = 2
 const jiraReleaseMaxRetryWait = 3 * time.Second
 
 var numericReleaseIDRegex = regexp.MustCompile(`^\d+$`)
-var jiraReleaseSleepFn = time.Sleep
+var jiraReleaseWaitFn = waitForReleaseRetry
 
-func (s *StatusService) ListReleasedFixVersions(_ context.Context, group string) ([]ReleaseVersion, error) {
+func (s *StatusService) ListReleasedFixVersions(ctx context.Context, group string) ([]ReleaseVersion, error) {
 	if s == nil {
 		return nil, nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 
 	group = strings.TrimSpace(group)
@@ -42,12 +45,16 @@ func (s *StatusService) ListReleasedFixVersions(_ context.Context, group string)
 	versions := make([]ReleaseVersion, 0, jiraReleasePageSize)
 
 	for {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+
 		requestURL, err := buildReleasedVersionsURL(groupCfg.baseURL, group, startAt)
 		if err != nil {
 			return nil, err
 		}
 
-		response, _, requestErr := s.resolveReleaseRequestWithRetry(group, groupCfg.transport, requestURL, headers)
+		response, _, requestErr := s.resolveReleaseRequestWithRetry(ctx, group, groupCfg.transport, requestURL, headers)
 		if requestErr != nil {
 			return nil, fmt.Errorf("получить released fixVersion: %w", requestErr)
 		}
@@ -66,6 +73,9 @@ func (s *StatusService) ListReleasedFixVersions(_ context.Context, group string)
 		}
 
 		versions = append(versions, page.versions...)
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		if page.last {
 			break
 		}
@@ -88,9 +98,12 @@ func (s *StatusService) ListReleasedFixVersions(_ context.Context, group string)
 	return versions, nil
 }
 
-func (s *StatusService) ListDoneIssueKeysByRelease(_ context.Context, group, releaseID string) ([]string, error) {
+func (s *StatusService) ListDoneIssueKeysByRelease(ctx context.Context, group, releaseID string) ([]string, error) {
 	if s == nil {
 		return nil, nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 
 	group = strings.TrimSpace(group)
@@ -112,12 +125,16 @@ func (s *StatusService) ListDoneIssueKeysByRelease(_ context.Context, group, rel
 	keysSet := make(map[string]struct{})
 
 	for {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+
 		requestURL, err := buildDoneIssuesByReleaseURL(groupCfg.baseURL, releaseID, startAt)
 		if err != nil {
 			return nil, err
 		}
 
-		response, _, requestErr := s.resolveReleaseRequestWithRetry(group, groupCfg.transport, requestURL, headers)
+		response, _, requestErr := s.resolveReleaseRequestWithRetry(ctx, group, groupCfg.transport, requestURL, headers)
 		if requestErr != nil {
 			return nil, fmt.Errorf("получить Jira issue keys по релизу: %w", requestErr)
 		}
@@ -157,9 +174,17 @@ func (s *StatusService) ListDoneIssueKeysByRelease(_ context.Context, group, rel
 	return keys, nil
 }
 
-func (s *StatusService) resolveReleaseRequestWithRetry(group string, transport groupTransport, requestURL string, headers map[string]string) (searchStatusResponse, bool, error) {
+func (s *StatusService) resolveReleaseRequestWithRetry(ctx context.Context, group string, transport groupTransport, requestURL string, headers map[string]string) (searchStatusResponse, bool, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	for attempt := 0; attempt <= jiraReleaseMaxRetries; attempt++ {
-		response, usedBrowserFallback, requestErr := s.resolveSearch(group, transport, requestURL, headers)
+		if err := ctx.Err(); err != nil {
+			return searchStatusResponse{}, false, err
+		}
+
+		response, usedBrowserFallback, requestErr := s.resolveSearchWithContext(ctx, group, transport, requestURL, headers)
 		if requestErr != nil {
 			return searchStatusResponse{}, usedBrowserFallback, requestErr
 		}
@@ -170,7 +195,9 @@ func (s *StatusService) resolveReleaseRequestWithRetry(group string, transport g
 			}
 
 			wait := releaseRetryDelay(response.retryAfter, attempt)
-			jiraReleaseSleepFn(wait)
+			if err := jiraReleaseWaitFn(ctx, wait); err != nil {
+				return searchStatusResponse{}, usedBrowserFallback, err
+			}
 			continue
 		}
 
@@ -179,7 +206,9 @@ func (s *StatusService) resolveReleaseRequestWithRetry(group string, transport g
 				return response, usedBrowserFallback, nil
 			}
 
-			jiraReleaseSleepFn(releaseRetryDelay("", attempt))
+			if err := jiraReleaseWaitFn(ctx, releaseRetryDelay("", attempt)); err != nil {
+				return searchStatusResponse{}, usedBrowserFallback, err
+			}
 			continue
 		}
 
@@ -187,6 +216,27 @@ func (s *StatusService) resolveReleaseRequestWithRetry(group string, transport g
 	}
 
 	return searchStatusResponse{}, false, fmt.Errorf("jira release retry exhausted")
+}
+
+func waitForReleaseRetry(ctx context.Context, wait time.Duration) error {
+	if wait <= 0 {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			return nil
+		}
+	}
+
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 func releaseRetryDelay(retryAfter string, attempt int) time.Duration {

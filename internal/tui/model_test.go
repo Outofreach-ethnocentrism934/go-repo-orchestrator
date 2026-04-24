@@ -1,12 +1,14 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/spf13/viper"
 
 	"github.com/agelxnash/go-repo-orchestrator/internal/config"
 	"github.com/agelxnash/go-repo-orchestrator/internal/jira"
@@ -2319,5 +2321,103 @@ func TestReleaseFlowAcceptanceF11LoadSelectApplyAndSummary(t *testing.T) {
 	}
 	if !strings.Contains(next.statusLine, "Release 42") || !strings.Contains(next.statusLine, "issues=2") {
 		t.Fatalf("expected summary status line after release apply, got %q", next.statusLine)
+	}
+}
+
+type fakeReleaseServiceTUI struct {
+	listVersionsFn  func(ctx context.Context, group string) ([]jira.ReleaseVersion, error)
+	listIssueKeysFn func(ctx context.Context, group, releaseID string) ([]string, error)
+}
+
+func (f fakeReleaseServiceTUI) ListReleasedFixVersions(ctx context.Context, group string) ([]jira.ReleaseVersion, error) {
+	if f.listVersionsFn != nil {
+		return f.listVersionsFn(ctx, group)
+	}
+	return nil, nil
+}
+
+func (f fakeReleaseServiceTUI) ListDoneIssueKeysByRelease(ctx context.Context, group, releaseID string) ([]string, error) {
+	if f.listIssueKeysFn != nil {
+		return f.listIssueKeysFn(ctx, group, releaseID)
+	}
+	return nil, nil
+}
+
+func TestReleaseApplyUsesBranchesSnapshotNotLiveState(t *testing.T) {
+	v := viper.New()
+	v.Set("jira", []map[string]any{{"group": "TASKS", "url": "https://tasks.example.org"}})
+	v.Set("repos", []map[string]any{{
+		"name": "repo-a",
+		"path": "/tmp/repo-a",
+		"branch": map[string]any{
+			"jira": []string{`^(?P<TASKS>OPS-\d+)$`},
+		},
+	}})
+
+	cfg, err := config.LoadFromViper(v)
+	if err != nil {
+		t.Fatalf("load config from viper: %v", err)
+	}
+
+	cleaner := usecase.NewCleaner(nil, usecase.WithJiraReleaseService(fakeReleaseServiceTUI{
+		listIssueKeysFn: func(_ context.Context, group, releaseID string) ([]string, error) {
+			if group != "TASKS" || releaseID != "42" {
+				t.Fatalf("unexpected release params: group=%s releaseID=%s", group, releaseID)
+			}
+			return []string{"OPS-1"}, nil
+		},
+	}))
+
+	m := NewModel(cfg, cleaner, false)
+	m.focus = focusBranches
+	m.activeRepo = model.RepoBranches{
+		RepoName: "repo-a",
+		Branches: []model.BranchInfo{
+			{Name: "OPS-1", Key: "refs/heads/OPS-1", Scope: model.BranchScopeLocal},
+			{Name: "OPS-2", Key: "refs/heads/OPS-2", Scope: model.BranchScopeLocal},
+		},
+	}
+	m.repoStats["repo-a"] = model.RepoStat{Loaded: true}
+
+	choice := usecase.RepoRelease{Group: "TASKS", Version: jira.ReleaseVersion{ID: "42", Name: "R42"}}
+	cmd := m.startApplyReleaseAutocheck(choice)
+	if cmd == nil {
+		t.Fatal("expected non-nil command")
+	}
+
+	// Mutate live state after command creation.
+	m.activeRepo.Branches = []model.BranchInfo{{Name: "OTHER-1", Key: "refs/heads/OTHER-1", Scope: model.BranchScopeLocal}}
+
+	msg := cmd()
+	applyMsg, ok := msg.(releaseAutocheckAppliedMsg)
+	if !ok {
+		batch, batchOK := msg.(tea.BatchMsg)
+		if !batchOK {
+			t.Fatalf("expected releaseAutocheckAppliedMsg or tea.BatchMsg, got %T", msg)
+		}
+
+		found := false
+		for _, batchCmd := range batch {
+			if batchCmd == nil {
+				continue
+			}
+			inner := batchCmd()
+			candidate, innerOK := inner.(releaseAutocheckAppliedMsg)
+			if !innerOK {
+				continue
+			}
+			applyMsg = candidate
+			found = true
+			break
+		}
+		if !found {
+			t.Fatalf("expected releaseAutocheckAppliedMsg inside tea.BatchMsg, got %T", msg)
+		}
+	}
+	if applyMsg.err != nil {
+		t.Fatalf("unexpected error: %v", applyMsg.err)
+	}
+	if len(applyMsg.branches) != 1 || applyMsg.branches[0].Name != "OPS-1" {
+		t.Fatalf("expected snapshot-based match OPS-1, got %#v", applyMsg.branches)
 	}
 }
