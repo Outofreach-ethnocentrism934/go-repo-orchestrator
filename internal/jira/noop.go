@@ -1,5 +1,7 @@
 package jira
 
+import "context"
+
 const unknownStatus = "-"
 
 type StatusState string
@@ -53,6 +55,17 @@ type StatusResolver interface {
 	ResolveStatus(group, ticketURL, jiraBaseURL, key string) StatusResult
 }
 
+type ReleaseVersion struct {
+	ID          string
+	Name        string
+	ReleaseDate string
+}
+
+type ReleaseService interface {
+	ListReleasedFixVersions(ctx context.Context, group string) ([]ReleaseVersion, error)
+	ListDoneIssueKeysByRelease(ctx context.Context, group, releaseID string) ([]string, error)
+}
+
 // Noop — заглушка Jira-адаптера для MVP без внешней интеграции.
 type Noop struct{}
 
@@ -61,4 +74,12 @@ func NewNoop() Noop { return Noop{} }
 
 func (Noop) ResolveStatus(_, _, _, _ string) StatusResult {
 	return StatusResult{Status: unknownStatus, State: StatusStateUnmapped, Reason: StatusReasonNoMapping}
+}
+
+func (Noop) ListReleasedFixVersions(_ context.Context, _ string) ([]ReleaseVersion, error) {
+	return nil, nil
+}
+
+func (Noop) ListDoneIssueKeysByRelease(_ context.Context, _, _ string) ([]string, error) {
+	return nil, nil
 }

@@ -13,10 +13,18 @@ import (
 func (m Model) updateConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "n":
+		if m.confirmType == confirmReleaseSelect {
+			m.confirmType = confirmNone
+			m.statusLine = "Release-driven автопометка отменена"
+			return m, nil
+		}
 		m.confirmType = confirmNone
 		m.statusLine = "Генерация скрипта отменена"
 		return m, nil
 	case "left", "right", "t":
+		if m.confirmType != confirmGenerate {
+			return m, nil
+		}
 		if m.scriptFormat == model.ScriptFormatSH {
 			m.scriptFormat = model.ScriptFormatBAT
 		} else {
@@ -24,6 +32,19 @@ func (m Model) updateConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case "enter", "y", "f8":
+		if m.confirmType == confirmReleaseSelect {
+			if len(m.releaseOptions) == 0 {
+				m.confirmType = confirmNone
+				m.statusLine = "Released версии Jira не найдены"
+				return m, nil
+			}
+			idx := m.releaseOptionIdx
+			if idx < 0 || idx >= len(m.releaseOptions) {
+				idx = 0
+			}
+			return m, m.startApplyReleaseAutocheck(m.releaseOptions[idx])
+		}
+
 		repo, ok := m.cfg.RepoByName(m.activeRepo.RepoName)
 		if !ok {
 			m.err = errors.New("репозиторий не найден в конфигурации")
@@ -53,6 +74,20 @@ func (m Model) updateConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				err := m.clean.ForceCheckoutLocalBranch(ctx, repo, m.checkoutTarget)
 				return checkoutCompletedMsg{actionKey: actionKey, actionID: actionID, repoName: repo.Name, err: err}
 			})
+		}
+	case "up", "k":
+		if m.confirmType == confirmReleaseSelect && len(m.releaseOptions) > 0 {
+			if m.releaseOptionIdx > 0 {
+				m.releaseOptionIdx--
+			}
+			return m, nil
+		}
+	case "down", "j":
+		if m.confirmType == confirmReleaseSelect && len(m.releaseOptions) > 0 {
+			if m.releaseOptionIdx < len(m.releaseOptions)-1 {
+				m.releaseOptionIdx++
+			}
+			return m, nil
 		}
 	}
 

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -29,6 +30,7 @@ const (
 	confirmNone confirmMode = iota
 	confirmGenerate
 	confirmCheckout
+	confirmReleaseSelect
 )
 
 type branchScopeFilter int
@@ -93,6 +95,11 @@ type Model struct {
 	confirmType    confirmMode
 	checkoutTarget string
 	scriptFormat   model.ScriptFormat
+
+	releaseLoading         bool
+	releaseOptions         []usecase.RepoRelease
+	releaseOptionIdx       int
+	releaseSelectionByRepo map[string]string
 
 	spinner spinner.Model
 
@@ -166,6 +173,7 @@ func NewModel(cfg *config.Config, cleaner *usecase.Cleaner, _ bool) Model {
 		appCtx:                 appCtx,
 		appCancel:              appCancel,
 		actionCancels:          make(map[string]actionCancelRef),
+		releaseSelectionByRepo: make(map[string]string),
 	}
 }
 
@@ -248,7 +256,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case spinner.TickMsg:
-		if !m.loadingSelectedRepo() && !m.startupLoading && !m.refreshLocked {
+		if !m.loadingSelectedRepo() && !m.startupLoading && !m.refreshLocked && !m.releaseLoading {
 			return m, nil
 		}
 		var cmd tea.Cmd
@@ -436,6 +444,71 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.releaseRefreshLock(msg.repoName)
 		return m, nil
 
+	case releaseOptionsLoadedMsg:
+		m.finishAction(msg.actionKey, msg.actionID)
+		m.releaseLoading = false
+		m.err = userFacingError(msg.err)
+		if msg.err != nil {
+			m.statusLine = "Не удалось загрузить Jira releases"
+			return m, nil
+		}
+
+		m.releaseOptions = slices.Clone(msg.options)
+		m.releaseOptionIdx = 0
+		if len(m.releaseOptions) == 0 {
+			m.statusLine = "Released версии Jira не найдены для веток текущего репозитория"
+			return m, nil
+		}
+
+		selectedID := strings.TrimSpace(m.releaseSelectionByRepo[msg.repoName])
+		if selectedID != "" {
+			for idx, option := range m.releaseOptions {
+				if strings.TrimSpace(option.Version.ID) == selectedID {
+					m.releaseOptionIdx = idx
+					break
+				}
+			}
+		}
+
+		m.confirmType = confirmReleaseSelect
+		m.statusLine = "Выберите release и нажмите Enter для автопометки"
+		return m, nil
+
+	case releaseAutocheckAppliedMsg:
+		m.finishAction(msg.actionKey, msg.actionID)
+		m.releaseLoading = false
+		m.err = userFacingError(msg.err)
+		if msg.err != nil {
+			m.statusLine = "Release-driven автопометка не выполнена"
+			return m, nil
+		}
+
+		selected := m.ensureRepoSelection(msg.repoName)
+		added := 0
+		for _, branch := range msg.branches {
+			key := m.branchSelectionKey(branch)
+			if _, exists := selected[key]; exists {
+				continue
+			}
+			selected[key] = true
+			added++
+		}
+
+		if strings.TrimSpace(msg.selectedID) != "" {
+			m.releaseSelectionByRepo[msg.repoName] = strings.TrimSpace(msg.selectedID)
+		}
+
+		m.statusLine = fmt.Sprintf(
+			"Release %s: issues=%d, matches=%d, selected=%d, protected=%d, skippedNoJira=%d",
+			valueOrDash(msg.summary.ReleaseID),
+			msg.summary.IssueKeysTotal,
+			msg.summary.BranchMatches,
+			added,
+			msg.summary.BranchSkippedProtect,
+			msg.summary.BranchSkippedNoJira,
+		)
+		return m, nil
+
 	case tea.KeyMsg:
 		if m.isQuitKey(msg) {
 			m.cancelAllOperations()
@@ -537,6 +610,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			return m, nil
+		}
+
+		if isReleaseAutocheckKey(msg) {
+			if m.focus != focusBranches {
+				return m, nil
+			}
+			return m, m.startLoadReleaseOptions()
 		}
 
 		if m.focus == focusRepos {

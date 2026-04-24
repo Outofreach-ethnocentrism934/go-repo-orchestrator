@@ -1,15 +1,19 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/spf13/viper"
 
 	"github.com/agelxnash/go-repo-orchestrator/internal/config"
+	"github.com/agelxnash/go-repo-orchestrator/internal/jira"
 	"github.com/agelxnash/go-repo-orchestrator/internal/model"
+	"github.com/agelxnash/go-repo-orchestrator/internal/usecase"
 )
 
 func TestAdjustedViewportOffsetKeepsCursorVisible(t *testing.T) {
@@ -1018,7 +1022,7 @@ func TestSelectionUsesBranchKeyForDuplicateNames(t *testing.T) {
 	}
 }
 
-func TestStarInvertsOnlyVisibleSelectableBranches(t *testing.T) {
+func TestPlusInvertsOnlyVisibleSelectableBranches(t *testing.T) {
 	m := NewModel(&config.Config{
 		Repos: []config.RepoConfig{{Name: "repo-a", Path: "/tmp/repo-a"}},
 	}, nil, false)
@@ -1040,7 +1044,7 @@ func TestStarInvertsOnlyVisibleSelectableBranches(t *testing.T) {
 		"refs/heads/feature/local-protected": true,
 	}
 
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'*'}})
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'+'}})
 	next := updated.(Model)
 	selected := next.selected["repo-a"]
 
@@ -1061,7 +1065,7 @@ func TestStarInvertsOnlyVisibleSelectableBranches(t *testing.T) {
 	}
 }
 
-func TestNumpadStarInvertsSelection(t *testing.T) {
+func TestNumpadPlusInvertsSelection(t *testing.T) {
 	m := NewModel(&config.Config{
 		Repos: []config.RepoConfig{{Name: "repo-a", Path: "/tmp/repo-a"}},
 	}, nil, false)
@@ -1079,16 +1083,16 @@ func TestNumpadStarInvertsSelection(t *testing.T) {
 	}
 	m.repoStats["repo-a"] = model.RepoStat{Loaded: true}
 
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'*'}})
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'+'}})
 	next := updated.(Model)
 	if !next.selected["repo-a"]["refs/remotes/origin/feature/remote"] {
-		t.Fatal("expected '*' inversion to select remote branch")
+		t.Fatal("expected '+' inversion to select remote branch")
 	}
 
-	updated, _ = next.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'*'}})
+	updated, _ = next.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'+'}})
 	next = updated.(Model)
 	if next.selected["repo-a"]["refs/remotes/origin/feature/remote"] {
-		t.Fatal("expected second '*' inversion to unselect remote branch")
+		t.Fatal("expected second '+' inversion to unselect remote branch")
 	}
 }
 
@@ -2139,5 +2143,304 @@ func TestManualOverridePersistsAfterRefresh(t *testing.T) {
 
 	if m.selected["repo-a"]["refs/heads/feature/task"] {
 		t.Fatal("expected manual unselect to persist after re-applying autocheck")
+	}
+}
+
+func TestStarStartsReleaseOptionsLoadOnlyInBranchesTab(t *testing.T) {
+	m := NewModel(&config.Config{
+		Repos: []config.RepoConfig{{Name: "repo-a", Path: "/tmp/repo-a"}},
+	}, nil, false)
+
+	m.focus = focusBranches
+	m.activeRepo = model.RepoBranches{RepoName: "repo-a", Branches: []model.BranchInfo{{Name: "OPS-1", Scope: model.BranchScopeLocal}}}
+	m.repoStats["repo-a"] = model.RepoStat{Loaded: true}
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'*'}})
+	next := updated.(Model)
+
+	if cmd == nil {
+		t.Fatal("expected non-nil command after '*' in branches tab")
+	}
+	if !next.releaseLoading {
+		t.Fatal("expected releaseLoading=true after '*'")
+	}
+
+	m.focus = focusRepos
+	updated, cmd = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'*'}})
+	next = updated.(Model)
+	if cmd != nil {
+		t.Fatal("expected nil command after '*' in repos tab")
+	}
+	if next.releaseLoading {
+		t.Fatal("expected releaseLoading=false in repos tab")
+	}
+}
+
+func TestRefreshDoesNotStartReleaseFlow(t *testing.T) {
+	m := NewModel(&config.Config{
+		Repos: []config.RepoConfig{{Name: "repo-a", Path: "/tmp/repo-a"}},
+	}, nil, false)
+
+	m.focus = focusBranches
+	m.activeRepo = model.RepoBranches{RepoName: "repo-a", Branches: []model.BranchInfo{{Name: "OPS-1", Scope: model.BranchScopeLocal}}}
+	m.repoStats["repo-a"] = model.RepoStat{Loaded: true}
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyF5})
+	next := updated.(Model)
+
+	if cmd == nil {
+		t.Fatal("expected refresh command after F5")
+	}
+	if next.releaseLoading {
+		t.Fatal("expected release flow to stay idle on refresh")
+	}
+	if next.confirmType == confirmReleaseSelect {
+		t.Fatal("expected refresh to not open release modal")
+	}
+}
+
+func TestReleaseAutocheckRespectsManualOverride(t *testing.T) {
+	m := NewModel(&config.Config{
+		Repos: []config.RepoConfig{{Name: "repo-a", Path: "/tmp/repo-a"}},
+	}, nil, false)
+
+	m.focus = focusBranches
+	m.activeRepo = model.RepoBranches{
+		RepoName: "repo-a",
+		Branches: []model.BranchInfo{
+			{Name: "OPS-1", Key: "refs/heads/OPS-1", Scope: model.BranchScopeLocal},
+			{Name: "OPS-2", Key: "refs/heads/OPS-2", Scope: model.BranchScopeLocal},
+		},
+	}
+	m.repoStats["repo-a"] = model.RepoStat{Loaded: true}
+	m.selected["repo-a"] = map[string]bool{
+		"refs/heads/OPS-1": false, // manual override: user explicitly unselected
+	}
+
+	updated, _ := m.Update(releaseAutocheckAppliedMsg{
+		repoName: "repo-a",
+		summary:  usecase.ReleaseAutocheckResult{Group: "TASKS", ReleaseID: "42"},
+		branches: []model.BranchInfo{
+			{Name: "OPS-1", Key: "refs/heads/OPS-1", Scope: model.BranchScopeLocal},
+			{Name: "OPS-2", Key: "refs/heads/OPS-2", Scope: model.BranchScopeLocal},
+		},
+		selectedID: "42",
+	})
+	next := updated.(Model)
+
+	if next.selected["repo-a"]["refs/heads/OPS-1"] {
+		t.Fatal("expected manual unselect to remain stronger than release auto-selection")
+	}
+	if !next.selected["repo-a"]["refs/heads/OPS-2"] {
+		t.Fatal("expected non-overridden branch to be selected by release auto-check")
+	}
+}
+
+func TestReleaseModalCancelClosesWithoutSelectionChanges(t *testing.T) {
+	m := NewModel(&config.Config{
+		Repos: []config.RepoConfig{{Name: "repo-a", Path: "/tmp/repo-a"}},
+	}, nil, false)
+
+	m.focus = focusBranches
+	m.activeRepo = model.RepoBranches{RepoName: "repo-a"}
+	m.repoStats["repo-a"] = model.RepoStat{Loaded: true}
+	m.confirmType = confirmReleaseSelect
+	m.releaseOptions = []usecase.RepoRelease{{Group: "TASKS", Version: jira.ReleaseVersion{ID: "42", Name: "R42"}}}
+	m.selected["repo-a"] = map[string]bool{"refs/heads/OPS-1": true}
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	next := updated.(Model)
+
+	if next.confirmType != confirmNone {
+		t.Fatalf("expected release modal to close on Esc, got %v", next.confirmType)
+	}
+	if !next.selected["repo-a"]["refs/heads/OPS-1"] {
+		t.Fatal("expected selection to remain unchanged after cancel")
+	}
+	if !strings.Contains(next.statusLine, "отменена") {
+		t.Fatalf("expected cancel status line, got %q", next.statusLine)
+	}
+}
+
+func TestReleaseModalIgnoresFormatToggleKeys(t *testing.T) {
+	m := NewModel(&config.Config{
+		Repos: []config.RepoConfig{{Name: "repo-a", Path: "/tmp/repo-a"}},
+	}, nil, false)
+
+	m.focus = focusBranches
+	m.confirmType = confirmReleaseSelect
+	m.scriptFormat = model.ScriptFormatSH
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRight})
+	next := updated.(Model)
+	if next.scriptFormat != model.ScriptFormatSH {
+		t.Fatal("expected right key to not toggle script format in release modal")
+	}
+
+	updated, _ = next.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	next = updated.(Model)
+	if next.scriptFormat != model.ScriptFormatSH {
+		t.Fatal("expected t key to not toggle script format in release modal")
+	}
+}
+
+func TestReleaseFlowAcceptanceStarLoadSelectApplyAndSummary(t *testing.T) {
+	cfg := &config.Config{Repos: []config.RepoConfig{{Name: "repo-a", Path: "/tmp/repo-a"}}}
+	m := NewModel(cfg, nil, false)
+
+	m.focus = focusBranches
+	m.activeRepo = model.RepoBranches{RepoName: "repo-a", Branches: []model.BranchInfo{{Name: "OPS-1", Key: "refs/heads/OPS-1", Scope: model.BranchScopeLocal}, {Name: "OPS-2", Key: "refs/heads/OPS-2", Scope: model.BranchScopeLocal}}}
+	m.repoStats["repo-a"] = model.RepoStat{Loaded: true}
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'*'}})
+	next := updated.(Model)
+	if cmd == nil || !next.releaseLoading {
+		t.Fatal("expected '*' to initiate release loading")
+	}
+
+	options := []usecase.RepoRelease{{Group: "TASKS", Version: jira.ReleaseVersion{ID: "42", Name: "Release 42", ReleaseDate: "2026-04-24"}}}
+	updated, _ = next.Update(releaseOptionsLoadedMsg{repoName: "repo-a", options: options})
+	next = updated.(Model)
+	if next.confirmType != confirmReleaseSelect {
+		t.Fatalf("expected release select modal, got %v", next.confirmType)
+	}
+
+	updated, _ = next.Update(releaseAutocheckAppliedMsg{
+		repoName: "repo-a",
+		summary:  usecase.ReleaseAutocheckResult{Group: "TASKS", ReleaseID: "42", IssueKeysTotal: 2, BranchMatches: 2, BranchSkippedProtect: 0, BranchSkippedNoJira: 0},
+		branches: []model.BranchInfo{
+			{Name: "OPS-1", Key: "refs/heads/OPS-1", Scope: model.BranchScopeLocal},
+			{Name: "OPS-2", Key: "refs/heads/OPS-2", Scope: model.BranchScopeLocal},
+		},
+		selectedID: "42",
+	})
+	next = updated.(Model)
+
+	if !next.selected["repo-a"]["refs/heads/OPS-1"] || !next.selected["repo-a"]["refs/heads/OPS-2"] {
+		t.Fatal("expected release apply to select matching branches")
+	}
+	if !strings.Contains(next.statusLine, "Release 42") || !strings.Contains(next.statusLine, "issues=2") {
+		t.Fatalf("expected summary status line after release apply, got %q", next.statusLine)
+	}
+}
+
+type fakeReleaseServiceTUI struct {
+	listVersionsFn  func(ctx context.Context, group string) ([]jira.ReleaseVersion, error)
+	listIssueKeysFn func(ctx context.Context, group, releaseID string) ([]string, error)
+}
+
+func (f fakeReleaseServiceTUI) ListReleasedFixVersions(ctx context.Context, group string) ([]jira.ReleaseVersion, error) {
+	if f.listVersionsFn != nil {
+		return f.listVersionsFn(ctx, group)
+	}
+	return nil, nil
+}
+
+func (f fakeReleaseServiceTUI) ListDoneIssueKeysByRelease(ctx context.Context, group, releaseID string) ([]string, error) {
+	if f.listIssueKeysFn != nil {
+		return f.listIssueKeysFn(ctx, group, releaseID)
+	}
+	return nil, nil
+}
+
+func TestReleaseApplyUsesBranchesSnapshotNotLiveState(t *testing.T) {
+	v := viper.New()
+	v.Set("jira", []map[string]any{{"group": "TASKS", "url": "https://tasks.example.org"}})
+	v.Set("repos", []map[string]any{{
+		"name": "repo-a",
+		"path": "/tmp/repo-a",
+		"branch": map[string]any{
+			"jira": []string{`^(?P<TASKS>OPS-\d+)$`},
+		},
+	}})
+
+	cfg, err := config.LoadFromViper(v)
+	if err != nil {
+		t.Fatalf("load config from viper: %v", err)
+	}
+
+	cleaner := usecase.NewCleaner(nil, usecase.WithJiraReleaseService(fakeReleaseServiceTUI{
+		listIssueKeysFn: func(_ context.Context, group, releaseID string) ([]string, error) {
+			if group != "TASKS" || releaseID != "42" {
+				t.Fatalf("unexpected release params: group=%s releaseID=%s", group, releaseID)
+			}
+			return []string{"OPS-1"}, nil
+		},
+	}))
+
+	m := NewModel(cfg, cleaner, false)
+	m.focus = focusBranches
+	m.activeRepo = model.RepoBranches{
+		RepoName: "repo-a",
+		Branches: []model.BranchInfo{
+			{Name: "OPS-1", Key: "refs/heads/OPS-1", Scope: model.BranchScopeLocal},
+			{Name: "OPS-2", Key: "refs/heads/OPS-2", Scope: model.BranchScopeLocal},
+		},
+	}
+	m.repoStats["repo-a"] = model.RepoStat{Loaded: true}
+
+	choice := usecase.RepoRelease{Group: "TASKS", Version: jira.ReleaseVersion{ID: "42", Name: "R42"}}
+	cmd := m.startApplyReleaseAutocheck(choice)
+	if cmd == nil {
+		t.Fatal("expected non-nil command")
+	}
+
+	// Mutate live state after command creation.
+	m.activeRepo.Branches = []model.BranchInfo{{Name: "OTHER-1", Key: "refs/heads/OTHER-1", Scope: model.BranchScopeLocal}}
+
+	msg := cmd()
+	applyMsg, ok := msg.(releaseAutocheckAppliedMsg)
+	if !ok {
+		batch, batchOK := msg.(tea.BatchMsg)
+		if !batchOK {
+			t.Fatalf("expected releaseAutocheckAppliedMsg or tea.BatchMsg, got %T", msg)
+		}
+
+		found := false
+		for _, batchCmd := range batch {
+			if batchCmd == nil {
+				continue
+			}
+			inner := batchCmd()
+			candidate, innerOK := inner.(releaseAutocheckAppliedMsg)
+			if !innerOK {
+				continue
+			}
+			applyMsg = candidate
+			found = true
+			break
+		}
+		if !found {
+			t.Fatalf("expected releaseAutocheckAppliedMsg inside tea.BatchMsg, got %T", msg)
+		}
+	}
+	if applyMsg.err != nil {
+		t.Fatalf("unexpected error: %v", applyMsg.err)
+	}
+	if len(applyMsg.branches) != 1 || applyMsg.branches[0].Name != "OPS-1" {
+		t.Fatalf("expected snapshot-based match OPS-1, got %#v", applyMsg.branches)
+	}
+}
+
+func TestStartApplyReleaseAutocheckReturnsNilWhenReleaseLoading(t *testing.T) {
+	v := viper.New()
+	v.Set("repos", []map[string]any{{
+		"name": "repo-a",
+		"path": "/tmp/repo-a",
+	}})
+
+	cfg, err := config.LoadFromViper(v)
+	if err != nil {
+		t.Fatalf("load config from viper: %v", err)
+	}
+
+	m := NewModel(cfg, nil, false)
+	m.focus = focusBranches
+	m.activeRepo = model.RepoBranches{RepoName: "repo-a"}
+	m.releaseLoading = true
+
+	cmd := m.startApplyReleaseAutocheck(usecase.RepoRelease{Group: "TASKS", Version: jira.ReleaseVersion{ID: "42"}})
+	if cmd != nil {
+		t.Fatal("expected nil cmd when releaseLoading=true to prevent duplicate apply")
 	}
 }

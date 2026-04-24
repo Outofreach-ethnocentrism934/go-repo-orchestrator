@@ -35,6 +35,7 @@ type gitClient interface {
 type Cleaner struct {
 	git  gitClient
 	jira jira.StatusResolver
+	rel  jira.ReleaseService
 	log  *zap.Logger
 }
 
@@ -49,6 +50,7 @@ func NewCleaner(git gitClient, opts ...CleanerOption) *Cleaner {
 	cleaner := &Cleaner{
 		git:  git,
 		jira: jira.NewNoop(),
+		rel:  jira.NewNoop(),
 		log:  zap.NewNop(),
 	}
 
@@ -62,6 +64,9 @@ func NewCleaner(git gitClient, opts ...CleanerOption) *Cleaner {
 	if cleaner.jira == nil {
 		cleaner.jira = jira.NewNoop()
 	}
+	if cleaner.rel == nil {
+		cleaner.rel = jira.NewNoop()
+	}
 	if cleaner.log == nil {
 		cleaner.log = zap.NewNop()
 	}
@@ -72,6 +77,12 @@ func NewCleaner(git gitClient, opts ...CleanerOption) *Cleaner {
 func WithJiraStatusResolver(resolver jira.StatusResolver) CleanerOption {
 	return func(cleaner *Cleaner) {
 		cleaner.jira = resolver
+	}
+}
+
+func WithJiraReleaseService(service jira.ReleaseService) CleanerOption {
+	return func(cleaner *Cleaner) {
+		cleaner.rel = service
 	}
 }
 

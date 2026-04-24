@@ -472,6 +472,7 @@ func (m Model) viewHotkeyBar(width int) string {
 			m.renderHotkeyItem("F5/r", "Обновить", true),
 			m.renderHotkeyItem("F6", "Сорт: "+m.branchSortCodeLabel(), true),
 			m.renderHotkeyItem("F7", "Клонировать", canCreateLocal),
+			m.renderHotkeyItem("*", "Release auto", true),
 			m.renderHotkeyItem("F8/g", "Скрипт", m.canGenerateScript()),
 			m.renderHotkeyItem("F9", "Скрытое", true),
 			m.renderHotkeyItem("F10/q", "Выход", true),
@@ -527,6 +528,24 @@ func (m Model) viewConfirmModal(base string) string {
 			"",
 			"Enter/y - выполнить checkout -f",
 			"Esc/n   - отмена",
+		}
+	case confirmReleaseSelect:
+		choice := "-"
+		if len(m.releaseOptions) > 0 && m.releaseOptionIdx >= 0 && m.releaseOptionIdx < len(m.releaseOptions) {
+			opt := m.releaseOptions[m.releaseOptionIdx]
+			choice = fmt.Sprintf("%s / %s (id=%s, date=%s)", valueOrDash(opt.Group), valueOrDash(opt.Version.Name), valueOrDash(opt.Version.ID), valueOrDash(opt.Version.ReleaseDate))
+		}
+
+		text = []string{
+			"[ JIRA RELEASE ] Автопометка кандидатов",
+			"",
+			fmt.Sprintf("Репозиторий: %s", m.activeRepo.RepoName),
+			fmt.Sprintf("Найдено releases: %d", len(m.releaseOptions)),
+			fmt.Sprintf("Выбор: %s", choice),
+			"",
+			"↑/↓ (или j/k) - выбрать release",
+			"Enter/y - применить автопометку",
+			"Esc/n - отмена",
 		}
 	}
 
